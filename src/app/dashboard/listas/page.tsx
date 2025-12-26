@@ -191,7 +191,7 @@ export default function ShoppingListsPage() {
                                                 }
                                             })
                                         }}
-                                        className="text-slate-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all transform hover:scale-110 p-2"
+                                        className="text-slate-600 hover:text-red-400 md:opacity-0 md:group-hover:opacity-100 transition-all transform hover:scale-110 p-2"
                                     >
                                         <FiTrash2 size={20} />
                                     </button>
@@ -278,7 +278,7 @@ export default function ShoppingListsPage() {
                                                         )}
                                                         <button
                                                             onClick={() => deleteItem(currentList.id, currentList.items, item.id)}
-                                                            className="p-2 text-slate-600 hover:text-white hover:bg-red-500 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                                                            className="p-2 text-slate-600 hover:text-white hover:bg-red-500 rounded-lg transition-all md:opacity-0 md:group-hover:opacity-100"
                                                         >
                                                             <FiTrash2 size={18} />
                                                         </button>
