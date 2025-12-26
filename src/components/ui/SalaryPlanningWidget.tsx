@@ -5,14 +5,16 @@ import Swal from "sweetalert2";
 import { doc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
+import { useUserData } from "@/contexts/UserDataContext";
+
 interface Props {
-    salary: number; // 0 implies not set
     userId: string;
-    onUpdateSalary: (newSalary: number) => void;
     bcvRate: number;
 }
 
-export default function SalaryPlanningWidget({ salary, userId, onUpdateSalary, bcvRate }: Props) {
+export default function SalaryPlanningWidget({ userId, bcvRate }: Props) {
+    const { userData } = useUserData();
+    const salary = userData.monthlySalary;
 
     const handleSetSalary = async () => {
         const { value: amount } = await Swal.fire({
@@ -32,7 +34,8 @@ export default function SalaryPlanningWidget({ salary, userId, onUpdateSalary, b
             try {
                 const userRef = doc(db, "users", userId);
                 await updateDoc(userRef, { monthlySalary: newSalary });
-                onUpdateSalary(newSalary);
+                // Context updates automatically via listener
+
 
                 Swal.fire({
                     icon: "success",

@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, onSnapshot } from "firebase/firestore";
 import { useTransactions } from "@/hooks/useTransactions";
-import { FiTrendingUp, FiTrendingDown, FiCreditCard, FiArrowRight, FiActivity } from "react-icons/fi";
+import { FiTrendingUp, FiTrendingDown, FiCreditCard, FiArrowRight, FiActivity, FiPlusCircle, FiPieChart, FiTarget, FiShoppingCart } from "react-icons/fi";
 import Link from "next/link";
 import RecentTransactions from "@/components/ui/RecentTransactions";
 import ExchangeRateWidget from "@/components/ui/ExchangeRateWidget";
@@ -22,8 +22,6 @@ export default function DashboardPage() {
     const [authLoading, setAuthLoading] = useState(true);
     const { transactions, loading: transactionsLoading } = useTransactions();
     const [bcvRate, setBcvRate] = useState<number>(0);
-    const [monthlyBudget, setMonthlyBudget] = useState<number>(0);
-    const [monthlySalary, setMonthlySalary] = useState<number>(0);
 
     useEffect(() => {
         getBCVRate().then(setBcvRate);
@@ -32,13 +30,6 @@ export default function DashboardPage() {
                 router.push("/login");
             } else {
                 setUser(currentUser);
-                const unsubDoc = onSnapshot(doc(db, "users", currentUser.uid), (doc) => {
-                    if (doc.exists()) {
-                        const data = doc.data();
-                        setMonthlyBudget(data?.monthlyBudget || 0);
-                        setMonthlySalary(data?.monthlySalary || 0);
-                    }
-                });
             }
             setAuthLoading(false);
         });
@@ -109,7 +100,11 @@ export default function DashboardPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 
                 {/* Saldo Total */}
-                <div className="group bg-slate-900/50 backdrop-blur-md p-6 rounded-3xl border border-slate-700/50 shadow-lg hover:border-emerald-500/30 hover:bg-slate-900/70 transition-all duration-300 relative overflow-hidden">
+                {/* Saldo Total */}
+                <div
+                    onClick={() => router.push('/dashboard/reportes')}
+                    className="group bg-slate-900/50 backdrop-blur-md p-6 rounded-3xl border border-slate-700/50 shadow-lg hover:border-emerald-500/30 hover:bg-slate-900/70 transition-all duration-300 relative overflow-hidden cursor-pointer active:scale-95"
+                >
                     <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-blue-500/20 transition-all"></div>
                     <div className="flex justify-between items-start mb-4 relative z-10">
                         <div>
@@ -128,7 +123,11 @@ export default function DashboardPage() {
                 </div>
 
                 {/* Ingresos del Mes */}
-                <div className="group bg-slate-900/50 backdrop-blur-md p-6 rounded-3xl border border-slate-700/50 shadow-lg hover:border-emerald-500/30 hover:bg-slate-900/70 transition-all duration-300 relative overflow-hidden">
+                {/* Ingresos del Mes */}
+                <div
+                    onClick={() => router.push('/dashboard/movimientos')}
+                    className="group bg-slate-900/50 backdrop-blur-md p-6 rounded-3xl border border-slate-700/50 shadow-lg hover:border-emerald-500/30 hover:bg-slate-900/70 transition-all duration-300 relative overflow-hidden cursor-pointer active:scale-95"
+                >
                     <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-emerald-500/20 transition-all"></div>
                     <div className="flex justify-between items-start mb-4 relative z-10">
                         <div>
@@ -144,13 +143,17 @@ export default function DashboardPage() {
                             <FiTrendingUp className="text-2xl text-emerald-400" />
                         </div>
                     </div>
-                    <Link href="/dashboard/movimientos" className="inline-flex items-center gap-2 text-xs font-semibold text-emerald-500 hover:text-emerald-300 transition-colors uppercase tracking-wide bg-emerald-500/10 px-3 py-1.5 rounded-lg border border-emerald-500/20 hover:border-emerald-500/40">
+                    <div className="inline-flex items-center gap-2 text-xs font-semibold text-emerald-500 hover:text-emerald-300 transition-colors uppercase tracking-wide bg-emerald-500/10 px-3 py-1.5 rounded-lg border border-emerald-500/20 hover:border-emerald-500/40">
                         Ver Detalles <FiArrowRight />
-                    </Link>
+                    </div>
                 </div>
 
                 {/* Gastos del Mes */}
-                <div className="group bg-slate-900/50 backdrop-blur-md p-6 rounded-3xl border border-slate-700/50 shadow-lg hover:border-red-500/30 hover:bg-slate-900/70 transition-all duration-300 relative overflow-hidden">
+                {/* Gastos del Mes */}
+                <div
+                    onClick={() => router.push('/dashboard/reportes')}
+                    className="group bg-slate-900/50 backdrop-blur-md p-6 rounded-3xl border border-slate-700/50 shadow-lg hover:border-red-500/30 hover:bg-slate-900/70 transition-all duration-300 relative overflow-hidden cursor-pointer active:scale-95"
+                >
                     <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/10 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-red-500/20 transition-all"></div>
                     <div className="flex justify-between items-start mb-4 relative z-10">
                         <div>
@@ -191,17 +194,66 @@ export default function DashboardPage() {
 
                 <BudgetAlertWidget
                     currentExpense={stats.monthlyExpense}
-                    budgetLimit={monthlyBudget}
                     userId={user?.uid}
-                    onUpdateLimit={setMonthlyBudget}
                 />
 
                 <SalaryPlanningWidget
-                    salary={monthlySalary}
                     userId={user?.uid}
-                    onUpdateSalary={setMonthlySalary}
                     bcvRate={bcvRate}
                 />
+            </div>
+
+            {/* Quick Actions Shortcuts */}
+            <div className="mb-2">
+                <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                    <span className="w-1.5 h-6 bg-blue-500 rounded-full"></span>
+                    Accesos Rápidos
+                </h2>
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    <Link href="/dashboard/movimientos" className="group bg-slate-900/50 hover:bg-slate-800 border border-slate-700/50 hover:border-emerald-500/50 p-4 rounded-2xl transition-all flex items-center gap-4 relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-16 h-16 bg-emerald-500/10 rounded-full blur-xl -mr-8 -mt-8 group-hover:bg-emerald-500/20 transition-all"></div>
+                        <div className="p-3 bg-emerald-500/10 text-emerald-400 rounded-xl group-hover:scale-110 transition-transform shadow-inner border border-emerald-500/10">
+                            <FiPlusCircle size={24} />
+                        </div>
+                        <div className="relative z-10">
+                            <p className="font-bold text-white text-sm md:text-base">Registrar</p>
+                            <p className="text-[10px] md:text-xs text-slate-400">Nuevo Movimiento</p>
+                        </div>
+                    </Link>
+
+                    <Link href="/dashboard/reportes" className="group bg-slate-900/50 hover:bg-slate-800 border border-slate-700/50 hover:border-blue-500/50 p-4 rounded-2xl transition-all flex items-center gap-4 relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-16 h-16 bg-blue-500/10 rounded-full blur-xl -mr-8 -mt-8 group-hover:bg-blue-500/20 transition-all"></div>
+                        <div className="p-3 bg-blue-500/10 text-blue-400 rounded-xl group-hover:scale-110 transition-transform shadow-inner border border-blue-500/10">
+                            <FiPieChart size={24} />
+                        </div>
+                        <div className="relative z-10">
+                            <p className="font-bold text-white text-sm md:text-base">Reportes</p>
+                            <p className="text-[10px] md:text-xs text-slate-400">Ver Estadísticas</p>
+                        </div>
+                    </Link>
+
+                    <Link href="/dashboard/ahorros" className="group bg-slate-900/50 hover:bg-slate-800 border border-slate-700/50 hover:border-purple-500/50 p-4 rounded-2xl transition-all flex items-center gap-4 relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-16 h-16 bg-purple-500/10 rounded-full blur-xl -mr-8 -mt-8 group-hover:bg-purple-500/20 transition-all"></div>
+                        <div className="p-3 bg-purple-500/10 text-purple-400 rounded-xl group-hover:scale-110 transition-transform shadow-inner border border-purple-500/10">
+                            <FiTarget size={24} />
+                        </div>
+                        <div className="relative z-10">
+                            <p className="font-bold text-white text-sm md:text-base">Metas</p>
+                            <p className="text-[10px] md:text-xs text-slate-400">Ahorros y Wallet</p>
+                        </div>
+                    </Link>
+
+                    <Link href="/dashboard/listas" className="group bg-slate-900/50 hover:bg-slate-800 border border-slate-700/50 hover:border-orange-500/50 p-4 rounded-2xl transition-all flex items-center gap-4 relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-16 h-16 bg-orange-500/10 rounded-full blur-xl -mr-8 -mt-8 group-hover:bg-orange-500/20 transition-all"></div>
+                        <div className="p-3 bg-orange-500/10 text-orange-400 rounded-xl group-hover:scale-110 transition-transform shadow-inner border border-orange-500/10">
+                            <FiShoppingCart size={24} />
+                        </div>
+                        <div className="relative z-10">
+                            <p className="font-bold text-white text-sm md:text-base">Compras</p>
+                            <p className="text-[10px] md:text-xs text-slate-400">Listas Super</p>
+                        </div>
+                    </Link>
+                </div>
             </div>
 
             {/* Quick Actions & Recent */}

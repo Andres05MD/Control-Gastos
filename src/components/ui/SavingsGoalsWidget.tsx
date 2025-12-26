@@ -5,7 +5,7 @@ import Swal from "sweetalert2";
 import { FiTarget, FiPlus, FiTrash2, FiEdit2 } from "react-icons/fi";
 
 export default function SavingsGoalsWidget({ bcvRate }: { bcvRate: number }) {
-    const { goals, loading, addGoal, deleteGoal, updateGoalProgress } = useGoals();
+    const { goals, loading, addGoal, deleteGoal, addContribution } = useGoals();
 
     const handleAddGoal = async () => {
         const { value: formValues } = await Swal.fire({
@@ -41,34 +41,65 @@ export default function SavingsGoalsWidget({ bcvRate }: { bcvRate: number }) {
         }
     };
 
-    const handleUpdateProgress = async (goal: Goal) => {
-        const { value: amount } = await Swal.fire({
-            title: `Actualizar Ahorro: ${goal.name}`,
-            input: 'number',
-            inputLabel: 'Monto ahorrado actual ($)',
-            inputValue: goal.currentAmount,
+    const handleAddContribution = async (goal: Goal) => {
+        const { value: formValues } = await Swal.fire({
+            title: `Ahorrar para: ${goal.name}`,
+            html: `
+                <div class="flex flex-col gap-4 text-left">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-300 mb-1">Monto a agregar</label>
+                        <input id="swal-amt" class="swal2-input w-full m-0" type="number" step="0.01" placeholder="0.00">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-300 mb-2">Origen del dinero</label>
+                        <div class="grid grid-cols-2 gap-2">
+                             <label class="cursor-pointer border border-slate-600 rounded-lg p-3 flex flex-col items-center gap-1 hover:bg-slate-700 transition-colors">
+                                <input type="radio" name="swal-method" value="physical" class="accent-emerald-500" checked>
+                                <span class="text-sm font-bold text-green-400">Efectivo</span>
+                            </label>
+                            <label class="cursor-pointer border border-slate-600 rounded-lg p-3 flex flex-col items-center gap-1 hover:bg-slate-700 transition-colors">
+                                <input type="radio" name="swal-method" value="usdt" class="accent-emerald-500">
+                                <span class="text-sm font-bold text-teal-400">USDT</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            `,
+            focusConfirm: false,
             showCancelButton: true,
+            confirmButtonText: 'Registrar',
+            confirmButtonColor: '#10b981',
+            cancelButtonColor: '#6b7280',
             background: "#1f2937",
             color: "#fff",
-            confirmButtonColor: '#10b981',
-            inputValidator: (value) => {
-                if (!value) {
-                    return 'Necesitas escribir un monto!'
+            preConfirm: () => {
+                const amt = (document.getElementById('swal-amt') as HTMLInputElement).value;
+                const methodRadio = document.querySelector('input[name="swal-method"]:checked') as HTMLInputElement;
+
+                if (!amt || parseFloat(amt) <= 0) {
+                    Swal.showValidationMessage('Ingresa un monto válido');
+                    return false;
                 }
-                return null;
+                return { amount: parseFloat(amt), method: methodRadio.value as "physical" | "usdt" };
             }
         });
 
-        if (amount) {
-            await updateGoalProgress(goal.id, parseFloat(amount));
-            Swal.fire({
-                icon: 'success',
-                title: 'Progreso actualizado',
-                timer: 1000,
-                showConfirmButton: false,
-                background: "#1f2937",
-                color: "#fff",
-            });
+        if (formValues) {
+            try {
+                await addContribution(goal.id, goal.name, formValues.amount, formValues.method);
+                Swal.fire({
+                    icon: 'success',
+                    title: '¡Ahorro registrado!',
+                    text: `Se agregaron $${formValues.amount} a tu meta y billetera.`,
+                    timer: 2000,
+                    showConfirmButton: false,
+                    background: "#1f2937",
+                    color: "#fff",
+                });
+            } catch (error) {
+                console.error(error);
+                Swal.fire('Error', 'No se pudo registrar el ahorro', 'error');
+            }
         }
     };
 
@@ -139,8 +170,12 @@ export default function SavingsGoalsWidget({ bcvRate }: { bcvRate: number }) {
                                         </p>
                                     </div>
                                     <div className="flex space-x-1 opacity-0 group-hover/item:opacity-100 transition-opacity">
-                                        <button onClick={() => handleUpdateProgress(goal)} className="p-1.5 text-blue-400 hover:text-white hover:bg-blue-500 rounded-lg transition-colors">
-                                            <FiEdit2 size={14} />
+                                        <button
+                                            onClick={() => handleAddContribution(goal)}
+                                            className="p-1.5 text-emerald-400 hover:text-white hover:bg-emerald-500 rounded-lg transition-colors flex items-center gap-1"
+                                            title="Agregar Ahorro"
+                                        >
+                                            <FiPlus size={14} /> <span className="text-[10px] font-bold">Aportar</span>
                                         </button>
                                         <button onClick={() => handleDelete(goal.id)} className="p-1.5 text-red-400 hover:text-white hover:bg-red-500 rounded-lg transition-colors">
                                             <FiTrash2 size={14} />

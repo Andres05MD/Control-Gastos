@@ -1,11 +1,13 @@
 "use client";
 
 import { useTransactions } from "@/hooks/useTransactions";
-import { FiTrendingUp, FiTrendingDown, FiTrash2, FiClock } from "react-icons/fi";
+import { FiTrendingUp, FiTrendingDown, FiTrash2, FiClock, FiEdit2 } from "react-icons/fi";
 import Swal from "sweetalert2";
+import { useEditTransaction } from "@/contexts/EditTransactionContext";
 
 export default function RecentTransactions() {
     const { transactions, loading, deleteTransaction } = useTransactions();
+    const { startEditing } = useEditTransaction();
 
     const handleDelete = (id: string) => {
         Swal.fire({
@@ -98,19 +100,28 @@ export default function RecentTransactions() {
                                     </span>
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                    <button
-                                        onClick={() => handleDelete(t.id)}
-                                        className="text-slate-500 hover:text-red-400 transition-colors p-2 hover:bg-red-500/10 rounded-lg"
-                                        title="Eliminar"
-                                    >
-                                        <FiTrash2 />
-                                    </button>
+                                    <div className="flex items-center justify-end space-x-2">
+                                        <button
+                                            onClick={() => startEditing(t)}
+                                            className="text-slate-500 hover:text-blue-400 transition-colors p-2 hover:bg-blue-500/10 rounded-lg"
+                                            title="Editar"
+                                        >
+                                            <FiEdit2 />
+                                        </button>
+                                        <button
+                                            onClick={() => handleDelete(t.id)}
+                                            className="text-slate-500 hover:text-red-400 transition-colors p-2 hover:bg-red-500/10 rounded-lg"
+                                            title="Eliminar"
+                                        >
+                                            <FiTrash2 />
+                                        </button>
+                                    </div>
                                 </td>
                             </tr>
                         ))}
                     </tbody>
                 </table>
             </div>
-        </div>
+        </div >
     );
 }

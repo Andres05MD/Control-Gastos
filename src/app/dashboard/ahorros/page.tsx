@@ -31,6 +31,7 @@ import {
 } from "react-icons/fi";
 import { SiTether } from "react-icons/si";
 import { getBCVRate } from "@/lib/currency";
+import GoalsSection from "@/components/savings/GoalsSection";
 
 interface SavingsTransaction {
     id: string;
@@ -304,6 +305,9 @@ export default function SavingsPage() {
                 </div>
             </div>
 
+            {/* Goals Section */}
+            {user && <GoalsSection userId={user.uid} />}
+
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Transaction Form */}
                 <div className="lg:col-span-1">
@@ -403,8 +407,8 @@ export default function SavingsPage() {
                                     <div key={t.id} className="bg-slate-800/30 hover:bg-slate-800/50 border border-slate-700/30 rounded-2xl p-4 flex items-center justify-between transition-all group">
                                         <div className="flex items-center gap-4">
                                             <div className={`p-3 rounded-xl ${t.type === "deposit"
-                                                    ? "bg-emerald-500/10 text-emerald-400"
-                                                    : "bg-red-500/10 text-red-400"
+                                                ? "bg-emerald-500/10 text-emerald-400"
+                                                : "bg-red-500/10 text-red-400"
                                                 }`}>
                                                 {t.type === "deposit" ? <FiArrowUpRight size={20} /> : <FiArrowDownLeft size={20} />}
                                             </div>
@@ -412,8 +416,8 @@ export default function SavingsPage() {
                                                 <p className="font-bold text-white flex items-center gap-2">
                                                     {t.description}
                                                     <span className={`text-[10px] uppercase px-2 py-0.5 rounded-full border ${t.method === "physical"
-                                                            ? "bg-green-500/10 text-green-400 border-green-500/20"
-                                                            : "bg-teal-500/10 text-teal-400 border-teal-500/20"
+                                                        ? "bg-green-500/10 text-green-400 border-green-500/20"
+                                                        : "bg-teal-500/10 text-teal-400 border-teal-500/20"
                                                         }`}>
                                                         {t.method === "physical" ? "Efectivo" : "USDT"}
                                                     </span>
@@ -443,6 +447,6 @@ export default function SavingsPage() {
                     </div>
                 </div>
             </div>
-        </div>
+        </div >
     );
 }

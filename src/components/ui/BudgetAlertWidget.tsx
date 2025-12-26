@@ -5,14 +5,16 @@ import Swal from "sweetalert2";
 import { doc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
+import { useUserData } from "@/contexts/UserDataContext";
+
 interface Props {
     currentExpense: number;
-    budgetLimit: number; // 0 means no limit
     userId: string;
-    onUpdateLimit: (newLimit: number) => void;
 }
 
-export default function BudgetAlertWidget({ currentExpense, budgetLimit, userId, onUpdateLimit }: Props) {
+export default function BudgetAlertWidget({ currentExpense, userId }: Props) {
+    const { userData } = useUserData();
+    const budgetLimit = userData.monthlyBudget;
 
     const percentage = budgetLimit > 0 ? (currentExpense / budgetLimit) * 100 : 0;
 
@@ -53,7 +55,7 @@ export default function BudgetAlertWidget({ currentExpense, budgetLimit, userId,
             try {
                 const userRef = doc(db, "users", userId);
                 await updateDoc(userRef, { monthlyBudget: newLimit });
-                onUpdateLimit(newLimit);
+                // Context updates automatically
 
                 Swal.fire({
                     icon: "success",

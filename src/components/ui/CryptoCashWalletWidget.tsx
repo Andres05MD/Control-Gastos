@@ -12,31 +12,22 @@ interface WalletData {
     savingsUSDT: number;
 }
 
+import { useUserData } from "@/contexts/UserDataContext";
+
 export default function CryptoCashWalletWidget({ userId, bcvRate }: { userId: string | undefined, bcvRate: number }) {
-    const [walletData, setWalletData] = useState<WalletData>({ savingsPhysical: 0, savingsUSDT: 0 });
-    const [loading, setLoading] = useState(true);
+    const { userData, loading } = useUserData();
 
-    useEffect(() => {
-        if (!userId) return;
+    // Local state for optimistic UI or just use context? Context will update automatically.
+    // We don't need local state for display anymore.
 
-        const unsub = onSnapshot(doc(db, "users", userId), (docSnap) => {
-            if (docSnap.exists()) {
-                const data = docSnap.data();
-                setWalletData({
-                    savingsPhysical: data.savingsPhysical || 0,
-                    savingsUSDT: data.savingsUSDT || 0
-                });
-            }
-            setLoading(false);
-        });
+    // We keep handleUpdate for writing.
 
-        return () => unsub();
-    }, [userId]);
+
 
     const handleUpdate = async (field: keyof WalletData, label: string) => {
         if (!userId) return;
 
-        const currentValue = walletData[field];
+        const currentValue = userData[field];
 
         const { value: amount } = await Swal.fire({
             title: `Actualizar ${label}`,
@@ -84,7 +75,9 @@ export default function CryptoCashWalletWidget({ userId, bcvRate }: { userId: st
 
     if (loading) return <div className="h-48 bg-slate-900/50 rounded-3xl animate-pulse"></div>;
 
-    const totalSaved = walletData.savingsPhysical + walletData.savingsUSDT;
+    if (loading) return <div className="h-48 bg-slate-900/50 rounded-3xl animate-pulse"></div>;
+
+    const totalSaved = userData.savingsPhysical + userData.savingsUSDT;
 
     return (
         <div className="bg-slate-900/50 backdrop-blur-md p-6 rounded-3xl border border-slate-700/50 shadow-lg relative overflow-hidden group hover:bg-slate-900/70 transition-all duration-300 flex flex-col justify-between">
@@ -109,7 +102,7 @@ export default function CryptoCashWalletWidget({ userId, bcvRate }: { userId: st
                         </div>
                         <div>
                             <p className="text-sm text-slate-400 font-medium">Efectivo Físico</p>
-                            <p className="text-lg font-bold text-white">$ {walletData.savingsPhysical.toLocaleString("es-ES", { minimumFractionDigits: 2 })}</p>
+                            <p className="text-lg font-bold text-white">$ {userData.savingsPhysical.toLocaleString("es-ES", { minimumFractionDigits: 2 })}</p>
                         </div>
                     </div>
                     <button
@@ -128,7 +121,7 @@ export default function CryptoCashWalletWidget({ userId, bcvRate }: { userId: st
                         </div>
                         <div>
                             <p className="text-sm text-slate-400 font-medium">USDT (Cripto)</p>
-                            <p className="text-lg font-bold text-white">{walletData.savingsUSDT.toLocaleString("es-ES", { minimumFractionDigits: 2 })} USDT</p>
+                            <p className="text-lg font-bold text-white">{userData.savingsUSDT.toLocaleString("es-ES", { minimumFractionDigits: 2 })} USDT</p>
                         </div>
                     </div>
                     <button

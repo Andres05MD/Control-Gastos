@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { collection, query, where, orderBy, onSnapshot, addDoc, deleteDoc, doc, updateDoc, serverTimestamp } from "firebase/firestore";
+import { collection, query, where, orderBy, onSnapshot, addDoc, deleteDoc, doc, updateDoc, serverTimestamp, runTransaction, increment } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase";
 
 export interface Goal {
@@ -9,6 +9,7 @@ export interface Goal {
     targetAmount: number;
     currentAmount: number;
     deadline?: any;
+    color?: string;
     createdAt?: any;
 }
 
@@ -25,8 +26,7 @@ export const useGoals = () => {
             }
 
             const q = query(
-                collection(db, "goals"),
-                where("userId", "==", user.uid),
+                collection(db, "users", user.uid, "saving_goals"),
                 orderBy("createdAt", "desc")
             );
 
@@ -47,25 +47,70 @@ export const useGoals = () => {
 
     const addGoal = async (name: string, targetAmount: number, deadline?: string) => {
         if (!auth.currentUser) return;
-        await addDoc(collection(db, "goals"), {
+        await addDoc(collection(db, "users", auth.currentUser.uid, "saving_goals"), {
             userId: auth.currentUser.uid,
             name,
             targetAmount,
             currentAmount: 0,
             deadline: deadline ? new Date(deadline) : null,
+            color: "#10b981", // Default color
             createdAt: serverTimestamp()
         });
     };
 
     const deleteGoal = async (id: string) => {
-        await deleteDoc(doc(db, "goals", id));
+        if (!auth.currentUser) return;
+        await deleteDoc(doc(db, "users", auth.currentUser.uid, "saving_goals", id));
     };
 
     const updateGoalProgress = async (id: string, newAmount: number) => {
-        await updateDoc(doc(db, "goals", id), {
+        if (!auth.currentUser) return;
+        await updateDoc(doc(db, "users", auth.currentUser.uid, "saving_goals", id), {
             currentAmount: newAmount
         });
     };
 
-    return { goals, loading, addGoal, deleteGoal, updateGoalProgress };
+    const addContribution = async (goalId: string, goalName: string, amount: number, method: "physical" | "usdt") => {
+        if (!auth.currentUser) return;
+        const uid = auth.currentUser.uid;
+
+        try {
+            await runTransaction(db, async (transaction) => {
+                // Refs
+                const userRef = doc(db, "users", uid);
+                const goalRef = doc(db, "users", uid, "saving_goals", goalId);
+                const newTransRef = doc(collection(db, "users", uid, "savings_transactions"));
+
+                // Get Current Data
+                const userDoc = await transaction.get(userRef);
+                if (!userDoc.exists()) throw "User doc not found";
+
+                // 1. Update Goal
+                transaction.update(goalRef, {
+                    currentAmount: increment(amount)
+                });
+
+                // 2. Update User Balance (Savings Wallet)
+                const fieldToUpdate = method === "physical" ? "savingsPhysical" : "savingsUSDT";
+                const currentBalance = userDoc.data()[fieldToUpdate] || 0;
+                transaction.update(userRef, {
+                    [fieldToUpdate]: currentBalance + amount
+                });
+
+                // 3. Create Transaction Record
+                transaction.set(newTransRef, {
+                    amount: amount,
+                    type: "deposit",
+                    method: method,
+                    description: `Ahorro: ${goalName}`,
+                    date: serverTimestamp()
+                });
+            });
+        } catch (e) {
+            console.error("Error in addContribution:", e);
+            throw e;
+        }
+    };
+
+    return { goals, loading, addGoal, deleteGoal, updateGoalProgress, addContribution };
 };
