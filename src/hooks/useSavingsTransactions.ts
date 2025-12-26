@@ -17,14 +17,21 @@ export function useSavingsTransactions() {
     const [loadingSavings, setLoadingSavings] = useState(true);
 
     useEffect(() => {
+        let unsubscribeSnapshot: (() => void) | null = null;
+
         const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+            if (unsubscribeSnapshot) {
+                unsubscribeSnapshot();
+                unsubscribeSnapshot = null;
+            }
+
             if (user) {
                 const q = query(
                     collection(db, "users", user.uid, "savings_transactions"),
                     orderBy("date", "desc")
                 );
 
-                const unsubscribeSnapshot = onSnapshot(q, (snapshot) => {
+                unsubscribeSnapshot = onSnapshot(q, (snapshot) => {
                     const data = snapshot.docs.map((doc) => {
                         const docData = doc.data();
                         return {
@@ -39,15 +46,18 @@ export function useSavingsTransactions() {
                     console.error("Error fetching savings transactions:", error);
                     setLoadingSavings(false);
                 });
-
-                return () => unsubscribeSnapshot();
             } else {
                 setSavingsTransactions([]);
                 setLoadingSavings(false);
             }
         });
 
-        return () => unsubscribeAuth();
+        return () => {
+            unsubscribeAuth();
+            if (unsubscribeSnapshot) {
+                unsubscribeSnapshot();
+            }
+        };
     }, []);
 
     return { savingsTransactions, loadingSavings };

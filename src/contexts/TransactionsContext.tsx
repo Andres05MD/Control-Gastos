@@ -31,7 +31,15 @@ export function TransactionsProvider({ children }: { children: ReactNode }) {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
+        let unsubscribeSnapshot: (() => void) | null = null;
+
         const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+            // Clean up previous snapshot listener if exists
+            if (unsubscribeSnapshot) {
+                unsubscribeSnapshot();
+                unsubscribeSnapshot = null;
+            }
+
             if (user) {
                 const q = query(
                     collection(db, "transactions"),
@@ -39,7 +47,7 @@ export function TransactionsProvider({ children }: { children: ReactNode }) {
                     orderBy("date", "desc")
                 );
 
-                const unsubscribeSnapshot = onSnapshot(q, (snapshot) => {
+                unsubscribeSnapshot = onSnapshot(q, (snapshot) => {
                     const data = snapshot.docs.map((doc) => {
                         const docData = doc.data();
                         return {
@@ -54,15 +62,18 @@ export function TransactionsProvider({ children }: { children: ReactNode }) {
                     console.error("Error fetching transactions:", error);
                     setLoading(false);
                 });
-
-                return () => unsubscribeSnapshot();
             } else {
                 setTransactions([]);
                 setLoading(false);
             }
         });
 
-        return () => unsubscribeAuth();
+        return () => {
+            unsubscribeAuth();
+            if (unsubscribeSnapshot) {
+                unsubscribeSnapshot();
+            }
+        };
     }, []);
 
     const deleteTransaction = async (id: string) => {

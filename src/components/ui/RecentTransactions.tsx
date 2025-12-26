@@ -42,14 +42,14 @@ export default function RecentTransactions() {
     if (loading) {
         return (
             <div className="flex justify-center p-8">
-                <div className="w-8 h-8 border-4 border-slate-600 border-t-emerald-500 rounded-full animate-spin"></div>
+                <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
             </div>
         );
     }
 
     if (transactions.length === 0) {
         return (
-            <div className="flex flex-col items-center justify-center p-8 text-slate-500 h-full border border-slate-700 border-dashed rounded-2xl bg-slate-800/50">
+            <div className="flex flex-col items-center justify-center p-8 text-slate-500 h-full border-2 border-slate-700 border-dashed rounded-2xl bg-slate-800/50">
                 <FiClock className="text-4xl mb-3 opacity-50" />
                 <p>No hay movimientos recientes.</p>
             </div>

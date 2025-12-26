@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, onSnapshot } from "firebase/firestore";
 import { useTransactions } from "@/hooks/useTransactions";
-import { FiTrendingUp, FiTrendingDown, FiCreditCard, FiArrowRight, FiActivity, FiPlusCircle, FiPieChart, FiTarget, FiShoppingCart } from "react-icons/fi";
+import { FiTrendingUp, FiTrendingDown, FiCreditCard, FiArrowRight, FiActivity, FiPlusCircle, FiPieChart, FiTarget, FiShoppingCart, FiCalendar } from "react-icons/fi";
 import Link from "next/link";
 import RecentTransactions from "@/components/ui/RecentTransactions";
 import ExchangeRateWidget from "@/components/ui/ExchangeRateWidget";
@@ -209,7 +209,7 @@ export default function DashboardPage() {
                     <span className="w-1.5 h-6 bg-blue-500 rounded-full"></span>
                     Accesos Rápidos
                 </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                     <Link href="/dashboard/movimientos" className="group bg-slate-900/50 hover:bg-slate-800 border border-slate-700/50 hover:border-emerald-500/50 p-4 rounded-2xl transition-all flex items-center gap-4 relative overflow-hidden">
                         <div className="absolute top-0 right-0 w-16 h-16 bg-emerald-500/10 rounded-full blur-xl -mr-8 -mt-8 group-hover:bg-emerald-500/20 transition-all"></div>
                         <div className="p-3 bg-emerald-500/10 text-emerald-400 rounded-xl group-hover:scale-110 transition-transform shadow-inner border border-emerald-500/10">
@@ -251,6 +251,17 @@ export default function DashboardPage() {
                         <div className="relative z-10">
                             <p className="font-bold text-white text-sm md:text-base">Compras</p>
                             <p className="text-[10px] md:text-xs text-slate-400">Listas Super</p>
+                        </div>
+                    </Link>
+
+                    <Link href="/dashboard/gastos-fijos" className="group bg-slate-900/50 hover:bg-slate-800 border border-slate-700/50 hover:border-teal-500/50 p-4 rounded-2xl transition-all flex items-center gap-4 relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-16 h-16 bg-teal-500/10 rounded-full blur-xl -mr-8 -mt-8 group-hover:bg-teal-500/20 transition-all"></div>
+                        <div className="p-3 bg-teal-500/10 text-teal-400 rounded-xl group-hover:scale-110 transition-transform shadow-inner border border-teal-500/10">
+                            <FiCalendar size={24} />
+                        </div>
+                        <div className="relative z-10">
+                            <p className="font-bold text-white text-sm md:text-base">Fijos</p>
+                            <p className="text-[10px] md:text-xs text-slate-400">Pagos Mes</p>
                         </div>
                     </Link>
                 </div>

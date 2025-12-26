@@ -435,7 +435,7 @@ export default function SavingsPage() {
                                             </p>
                                             <button
                                                 onClick={() => handleDelete(t)}
-                                                className="p-2 text-slate-600 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                                                className="p-2 text-slate-600 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors md:opacity-0 md:group-hover:opacity-100"
                                             >
                                                 <FiTrash2 />
                                             </button>

@@ -18,7 +18,14 @@ export const useGoals = () => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
+        let unsubscribeSnapshot: (() => void) | null = null;
+
         const unsubscribeAuth = auth.onAuthStateChanged((user) => {
+            if (unsubscribeSnapshot) {
+                unsubscribeSnapshot();
+                unsubscribeSnapshot = null;
+            }
+
             if (!user) {
                 setGoals([]);
                 setLoading(false);
@@ -30,7 +37,7 @@ export const useGoals = () => {
                 orderBy("createdAt", "desc")
             );
 
-            const unsubscribeSnapshot = onSnapshot(q, (snapshot) => {
+            unsubscribeSnapshot = onSnapshot(q, (snapshot) => {
                 const goalsData = snapshot.docs.map(doc => ({
                     id: doc.id,
                     ...doc.data(),
@@ -38,11 +45,14 @@ export const useGoals = () => {
                 setGoals(goalsData);
                 setLoading(false);
             });
-
-            return () => unsubscribeSnapshot();
         });
 
-        return () => unsubscribeAuth();
+        return () => {
+            unsubscribeAuth();
+            if (unsubscribeSnapshot) {
+                unsubscribeSnapshot();
+            }
+        };
     }, []);
 
     const addGoal = async (name: string, targetAmount: number, deadline?: string) => {

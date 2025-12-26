@@ -23,7 +23,14 @@ export const useShoppingLists = () => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
+        let unsubscribeSnapshot: (() => void) | null = null;
+
         const unsubscribeAuth = auth.onAuthStateChanged((user) => {
+            if (unsubscribeSnapshot) {
+                unsubscribeSnapshot();
+                unsubscribeSnapshot = null;
+            }
+
             if (!user) {
                 setLists([]);
                 setLoading(false);
@@ -36,7 +43,7 @@ export const useShoppingLists = () => {
                 orderBy("createdAt", "desc")
             );
 
-            const unsubscribeSnapshot = onSnapshot(q, (snapshot) => {
+            unsubscribeSnapshot = onSnapshot(q, (snapshot) => {
                 const data = snapshot.docs.map(doc => ({
                     id: doc.id,
                     ...doc.data(),
@@ -44,11 +51,14 @@ export const useShoppingLists = () => {
                 setLists(data);
                 setLoading(false);
             });
-
-            return () => unsubscribeSnapshot();
         });
 
-        return () => unsubscribeAuth();
+        return () => {
+            unsubscribeAuth();
+            if (unsubscribeSnapshot) {
+                unsubscribeSnapshot();
+            }
+        };
     }, []);
 
     const createList = async (name: string) => {
