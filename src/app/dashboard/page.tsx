@@ -96,6 +96,70 @@ export default function DashboardPage() {
                 </div>
             </div>
 
+            {/* Quick Actions Shortcuts */}
+            <div className="mb-2">
+                <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                    <span className="w-1.5 h-6 bg-blue-500 rounded-full"></span>
+                    Accesos Rápidos
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                    <Link href="/dashboard/movimientos" className="group bg-slate-900/50 hover:bg-slate-800 border border-slate-700/50 hover:border-emerald-500/50 p-4 rounded-2xl transition-all flex items-center gap-4 relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-16 h-16 bg-emerald-500/10 rounded-full blur-xl -mr-8 -mt-8 group-hover:bg-emerald-500/20 transition-all"></div>
+                        <div className="p-3 bg-emerald-500/10 text-emerald-400 rounded-xl group-hover:scale-110 transition-transform shadow-inner border border-emerald-500/10">
+                            <FiPlusCircle size={24} />
+                        </div>
+                        <div className="relative z-10">
+                            <p className="font-bold text-white text-sm md:text-base">Registrar</p>
+                            <p className="text-[10px] md:text-xs text-slate-400">Nuevo Movimiento</p>
+                        </div>
+                    </Link>
+
+                    <Link href="/dashboard/reportes" className="group bg-slate-900/50 hover:bg-slate-800 border border-slate-700/50 hover:border-blue-500/50 p-4 rounded-2xl transition-all flex items-center gap-4 relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-16 h-16 bg-blue-500/10 rounded-full blur-xl -mr-8 -mt-8 group-hover:bg-blue-500/20 transition-all"></div>
+                        <div className="p-3 bg-blue-500/10 text-blue-400 rounded-xl group-hover:scale-110 transition-transform shadow-inner border border-blue-500/10">
+                            <FiPieChart size={24} />
+                        </div>
+                        <div className="relative z-10">
+                            <p className="font-bold text-white text-sm md:text-base">Reportes</p>
+                            <p className="text-[10px] md:text-xs text-slate-400">Ver Estadísticas</p>
+                        </div>
+                    </Link>
+
+                    <Link href="/dashboard/ahorros" className="group bg-slate-900/50 hover:bg-slate-800 border border-slate-700/50 hover:border-purple-500/50 p-4 rounded-2xl transition-all flex items-center gap-4 relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-16 h-16 bg-purple-500/10 rounded-full blur-xl -mr-8 -mt-8 group-hover:bg-purple-500/20 transition-all"></div>
+                        <div className="p-3 bg-purple-500/10 text-purple-400 rounded-xl group-hover:scale-110 transition-transform shadow-inner border border-purple-500/10">
+                            <FiTarget size={24} />
+                        </div>
+                        <div className="relative z-10">
+                            <p className="font-bold text-white text-sm md:text-base">Metas</p>
+                            <p className="text-[10px] md:text-xs text-slate-400">Ahorros y Wallet</p>
+                        </div>
+                    </Link>
+
+                    <Link href="/dashboard/listas" className="group bg-slate-900/50 hover:bg-slate-800 border border-slate-700/50 hover:border-orange-500/50 p-4 rounded-2xl transition-all flex items-center gap-4 relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-16 h-16 bg-orange-500/10 rounded-full blur-xl -mr-8 -mt-8 group-hover:bg-orange-500/20 transition-all"></div>
+                        <div className="p-3 bg-orange-500/10 text-orange-400 rounded-xl group-hover:scale-110 transition-transform shadow-inner border border-orange-500/10">
+                            <FiShoppingCart size={24} />
+                        </div>
+                        <div className="relative z-10">
+                            <p className="font-bold text-white text-sm md:text-base">Compras</p>
+                            <p className="text-[10px] md:text-xs text-slate-400">Listas Super</p>
+                        </div>
+                    </Link>
+
+                    <Link href="/dashboard/gastos-fijos" className="group bg-slate-900/50 hover:bg-slate-800 border border-slate-700/50 hover:border-teal-500/50 p-4 rounded-2xl transition-all flex items-center gap-4 relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-16 h-16 bg-teal-500/10 rounded-full blur-xl -mr-8 -mt-8 group-hover:bg-teal-500/20 transition-all"></div>
+                        <div className="p-3 bg-teal-500/10 text-teal-400 rounded-xl group-hover:scale-110 transition-transform shadow-inner border border-teal-500/10">
+                            <FiCalendar size={24} />
+                        </div>
+                        <div className="relative z-10">
+                            <p className="font-bold text-white text-sm md:text-base">Fijos</p>
+                            <p className="text-[10px] md:text-xs text-slate-400">Pagos Mes</p>
+                        </div>
+                    </Link>
+                </div>
+            </div>
+
             {/* Big Numbers Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 
@@ -203,69 +267,7 @@ export default function DashboardPage() {
                 />
             </div>
 
-            {/* Quick Actions Shortcuts */}
-            <div className="mb-2">
-                <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                    <span className="w-1.5 h-6 bg-blue-500 rounded-full"></span>
-                    Accesos Rápidos
-                </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-                    <Link href="/dashboard/movimientos" className="group bg-slate-900/50 hover:bg-slate-800 border border-slate-700/50 hover:border-emerald-500/50 p-4 rounded-2xl transition-all flex items-center gap-4 relative overflow-hidden">
-                        <div className="absolute top-0 right-0 w-16 h-16 bg-emerald-500/10 rounded-full blur-xl -mr-8 -mt-8 group-hover:bg-emerald-500/20 transition-all"></div>
-                        <div className="p-3 bg-emerald-500/10 text-emerald-400 rounded-xl group-hover:scale-110 transition-transform shadow-inner border border-emerald-500/10">
-                            <FiPlusCircle size={24} />
-                        </div>
-                        <div className="relative z-10">
-                            <p className="font-bold text-white text-sm md:text-base">Registrar</p>
-                            <p className="text-[10px] md:text-xs text-slate-400">Nuevo Movimiento</p>
-                        </div>
-                    </Link>
 
-                    <Link href="/dashboard/reportes" className="group bg-slate-900/50 hover:bg-slate-800 border border-slate-700/50 hover:border-blue-500/50 p-4 rounded-2xl transition-all flex items-center gap-4 relative overflow-hidden">
-                        <div className="absolute top-0 right-0 w-16 h-16 bg-blue-500/10 rounded-full blur-xl -mr-8 -mt-8 group-hover:bg-blue-500/20 transition-all"></div>
-                        <div className="p-3 bg-blue-500/10 text-blue-400 rounded-xl group-hover:scale-110 transition-transform shadow-inner border border-blue-500/10">
-                            <FiPieChart size={24} />
-                        </div>
-                        <div className="relative z-10">
-                            <p className="font-bold text-white text-sm md:text-base">Reportes</p>
-                            <p className="text-[10px] md:text-xs text-slate-400">Ver Estadísticas</p>
-                        </div>
-                    </Link>
-
-                    <Link href="/dashboard/ahorros" className="group bg-slate-900/50 hover:bg-slate-800 border border-slate-700/50 hover:border-purple-500/50 p-4 rounded-2xl transition-all flex items-center gap-4 relative overflow-hidden">
-                        <div className="absolute top-0 right-0 w-16 h-16 bg-purple-500/10 rounded-full blur-xl -mr-8 -mt-8 group-hover:bg-purple-500/20 transition-all"></div>
-                        <div className="p-3 bg-purple-500/10 text-purple-400 rounded-xl group-hover:scale-110 transition-transform shadow-inner border border-purple-500/10">
-                            <FiTarget size={24} />
-                        </div>
-                        <div className="relative z-10">
-                            <p className="font-bold text-white text-sm md:text-base">Metas</p>
-                            <p className="text-[10px] md:text-xs text-slate-400">Ahorros y Wallet</p>
-                        </div>
-                    </Link>
-
-                    <Link href="/dashboard/listas" className="group bg-slate-900/50 hover:bg-slate-800 border border-slate-700/50 hover:border-orange-500/50 p-4 rounded-2xl transition-all flex items-center gap-4 relative overflow-hidden">
-                        <div className="absolute top-0 right-0 w-16 h-16 bg-orange-500/10 rounded-full blur-xl -mr-8 -mt-8 group-hover:bg-orange-500/20 transition-all"></div>
-                        <div className="p-3 bg-orange-500/10 text-orange-400 rounded-xl group-hover:scale-110 transition-transform shadow-inner border border-orange-500/10">
-                            <FiShoppingCart size={24} />
-                        </div>
-                        <div className="relative z-10">
-                            <p className="font-bold text-white text-sm md:text-base">Compras</p>
-                            <p className="text-[10px] md:text-xs text-slate-400">Listas Super</p>
-                        </div>
-                    </Link>
-
-                    <Link href="/dashboard/gastos-fijos" className="group bg-slate-900/50 hover:bg-slate-800 border border-slate-700/50 hover:border-teal-500/50 p-4 rounded-2xl transition-all flex items-center gap-4 relative overflow-hidden">
-                        <div className="absolute top-0 right-0 w-16 h-16 bg-teal-500/10 rounded-full blur-xl -mr-8 -mt-8 group-hover:bg-teal-500/20 transition-all"></div>
-                        <div className="p-3 bg-teal-500/10 text-teal-400 rounded-xl group-hover:scale-110 transition-transform shadow-inner border border-teal-500/10">
-                            <FiCalendar size={24} />
-                        </div>
-                        <div className="relative z-10">
-                            <p className="font-bold text-white text-sm md:text-base">Fijos</p>
-                            <p className="text-[10px] md:text-xs text-slate-400">Pagos Mes</p>
-                        </div>
-                    </Link>
-                </div>
-            </div>
 
             {/* Quick Actions & Recent */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
