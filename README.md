@@ -26,6 +26,15 @@ Una aplicación web progresiva y moderna para la gestión integral de finanzas p
 ### 📝 Listas de Compras
 - **Calculadora en Tiempo Real**: Suma automática en USD y conversión instantánea a Bs.
 - **Checklists Interactivas**: Control de estado (pendiente/comprado) para cada item.
+- **Seguimiento de Cantidades Parciales**: Marca productos comprados gradualmente cuando hay múltiples unidades.
+- **Indicador de Pagos Pendientes**: Muestra el monto restante por pagar cuando se compran productos parcialmente.
+- **Filtrado y Búsqueda**: 
+  - Busca listas por nombre
+  - Filtra productos dentro de cada lista
+- **Ordenamiento Flexible**:
+  - Por fecha (más recientes/antiguas)
+  - Alfabético (A-Z / Z-A)
+  - Productos pendientes aparecen primero automáticamente
 
 ### 📈 Reportes Actualizados
 - **Consolidado Financiero**: Visión clara de ingresos vs. gastos del mes.
