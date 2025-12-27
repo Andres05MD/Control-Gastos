@@ -2,12 +2,12 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useShoppingLists, ShoppingList, ShoppingItem } from "@/hooks/useShoppingLists";
-import { FiShoppingCart, FiPlus, FiTrash2, FiCheck, FiSquare, FiList, FiDollarSign } from "react-icons/fi";
+import { FiShoppingCart, FiPlus, FiTrash2, FiCheck, FiSquare, FiList, FiDollarSign, FiMinus } from "react-icons/fi";
 import Swal from "sweetalert2";
 import { getBCVRate } from "@/lib/currency";
 
 export default function ShoppingListsPage() {
-    const { lists, loading, createList, deleteList, addItem, toggleItem, deleteItem } = useShoppingLists();
+    const { lists, loading, createList, deleteList, addItem, toggleItem, deleteItem, updateItemProgress } = useShoppingLists();
     const [selectedList, setSelectedList] = useState<ShoppingList | null>(null);
     const [bcvRate, setBcvRate] = useState(0);
     const detailRef = useRef<HTMLDivElement>(null);
@@ -259,8 +259,29 @@ export default function ShoppingListsPage() {
                                                             <p className={`font-semibold text-lg ${item.completed ? "text-slate-500 line-through decoration-2 decoration-slate-600" : "text-white"}`}>
                                                                 {item.name}
                                                             </p>
-                                                            <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
-                                                                <span className="bg-slate-800 px-2 py-0.5 rounded-md">x{item.quantity}</span>
+                                                            <div className="flex items-center gap-3 text-xs text-slate-500 font-medium mt-1">
+                                                                {item.quantity > 1 ? (
+                                                                    <div className="flex items-center bg-slate-800 rounded-lg overflow-hidden border border-slate-700/50 shadow-sm" onClick={(e) => e.stopPropagation()}>
+                                                                        <button
+                                                                            onClick={() => updateItemProgress(currentList.id, currentList.items, item.id, -1)}
+                                                                            className="px-2 py-1 hover:bg-slate-700/80 text-slate-400 hover:text-red-400 transition-colors border-r border-slate-700/50"
+                                                                        >
+                                                                            <FiMinus size={12} />
+                                                                        </button>
+                                                                        <span className={`px-2 py-1 min-w-[3rem] text-center font-bold ${item.purchasedQuantity && item.purchasedQuantity > 0 ? "text-emerald-400" : "text-slate-400"}`}>
+                                                                            {item.purchasedQuantity || 0} / {item.quantity}
+                                                                        </span>
+                                                                        <button
+                                                                            onClick={() => updateItemProgress(currentList.id, currentList.items, item.id, 1)}
+                                                                            className="px-2 py-1 hover:bg-slate-700/80 text-slate-400 hover:text-emerald-400 transition-colors border-l border-slate-700/50"
+                                                                        >
+                                                                            <FiPlus size={12} />
+                                                                        </button>
+                                                                    </div>
+                                                                ) : (
+                                                                    <span className="bg-slate-800 px-2 py-0.5 rounded-md">x{item.quantity}</span>
+                                                                )}
+
                                                                 {item.price > 0 && <span>${item.price.toFixed(2)} c/u</span>}
                                                             </div>
                                                         </div>
@@ -268,12 +289,29 @@ export default function ShoppingListsPage() {
                                                     <div className="flex items-center gap-6">
                                                         {item.price > 0 && (
                                                             <div className="text-right">
-                                                                <p className="font-bold text-white text-lg">
-                                                                    ${(item.price * item.quantity).toFixed(2)}
-                                                                </p>
-                                                                <p className="text-[10px] text-slate-500">
-                                                                    Bs. {(item.price * item.quantity * bcvRate).toLocaleString("es-VE", { maximumFractionDigits: 2 })}
-                                                                </p>
+                                                                {item.quantity > 1 && (item.purchasedQuantity || 0) > 0 && !item.completed ? (
+                                                                    <>
+                                                                        <p className="text-[10px] text-amber-500 font-bold uppercase tracking-wider mb-0.5">Falta por pagar</p>
+                                                                        <p className="font-bold text-amber-400 text-lg">
+                                                                            ${((item.quantity - (item.purchasedQuantity || 0)) * item.price).toFixed(2)}
+                                                                        </p>
+                                                                        <p className="text-[10px] text-slate-500">
+                                                                            Bs. {((item.quantity - (item.purchasedQuantity || 0)) * item.price * bcvRate).toLocaleString("es-VE", { maximumFractionDigits: 2 })}
+                                                                        </p>
+                                                                        <p className="text-[10px] text-slate-600 mt-1 border-t border-slate-700/50 pt-1">
+                                                                            Total: ${(item.quantity * item.price).toFixed(2)}
+                                                                        </p>
+                                                                    </>
+                                                                ) : (
+                                                                    <>
+                                                                        <p className={`font-bold text-lg ${item.completed ? "text-slate-500 line-through" : "text-white"}`}>
+                                                                            ${(item.price * item.quantity).toFixed(2)}
+                                                                        </p>
+                                                                        <p className="text-[10px] text-slate-500">
+                                                                            Bs. {(item.price * item.quantity * bcvRate).toLocaleString("es-VE", { maximumFractionDigits: 2 })}
+                                                                        </p>
+                                                                    </>
+                                                                )}
                                                             </div>
                                                         )}
                                                         <button

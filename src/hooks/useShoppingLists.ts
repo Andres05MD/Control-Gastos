@@ -6,6 +6,7 @@ export interface ShoppingItem {
     id: string;
     name: string;
     quantity: number;
+    purchasedQuantity: number;
     price: number;
     completed: boolean;
 }
@@ -48,7 +49,17 @@ export const useShoppingLists = () => {
                     id: doc.id,
                     ...doc.data(),
                 })) as ShoppingList[];
-                setLists(data);
+
+                // Ensure backward compatibility by adding purchasedQuantity if missing
+                const sanitizedData = data.map(list => ({
+                    ...list,
+                    items: list.items?.map(item => ({
+                        ...item,
+                        purchasedQuantity: item.purchasedQuantity ?? (item.completed ? item.quantity : 0)
+                    })) || []
+                }));
+
+                setLists(sanitizedData);
                 setLoading(false);
             });
         });
@@ -75,10 +86,11 @@ export const useShoppingLists = () => {
         await deleteDoc(doc(db, "shopping_lists", listId));
     };
 
-    const addItem = async (listId: string, item: Omit<ShoppingItem, "id" | "completed">) => {
+    const addItem = async (listId: string, item: Omit<ShoppingItem, "id" | "completed" | "purchasedQuantity">) => {
         const newItem: ShoppingItem = {
             id: crypto.randomUUID(),
             completed: false,
+            purchasedQuantity: 0,
             ...item
         };
         const listRef = doc(db, "shopping_lists", listId);
@@ -88,9 +100,34 @@ export const useShoppingLists = () => {
     };
 
     const toggleItem = async (listId: string, currentItems: ShoppingItem[], itemId: string) => {
-        const updatedItems = currentItems.map(item =>
-            item.id === itemId ? { ...item, completed: !item.completed } : item
-        );
+        const updatedItems = currentItems.map(item => {
+            if (item.id === itemId) {
+                const newCompleted = !item.completed;
+                return {
+                    ...item,
+                    completed: newCompleted,
+                    purchasedQuantity: newCompleted ? item.quantity : 0
+                };
+            }
+            return item;
+        });
+        const listRef = doc(db, "shopping_lists", listId);
+        await updateDoc(listRef, { items: updatedItems });
+    };
+
+    const updateItemProgress = async (listId: string, currentItems: ShoppingItem[], itemId: string, change: number) => {
+        const updatedItems = currentItems.map(item => {
+            if (item.id === itemId) {
+                const newPurchasedQuantity = Math.max(0, Math.min(item.quantity, (item.purchasedQuantity || 0) + change));
+                const completed = newPurchasedQuantity >= item.quantity;
+                return {
+                    ...item,
+                    purchasedQuantity: newPurchasedQuantity,
+                    completed
+                };
+            }
+            return item;
+        });
         const listRef = doc(db, "shopping_lists", listId);
         await updateDoc(listRef, { items: updatedItems });
     };
@@ -101,5 +138,5 @@ export const useShoppingLists = () => {
         await updateDoc(listRef, { items: updatedItems });
     };
 
-    return { lists, loading, createList, deleteList, addItem, toggleItem, deleteItem };
+    return { lists, loading, createList, deleteList, addItem, toggleItem, updateItemProgress, deleteItem };
 };
