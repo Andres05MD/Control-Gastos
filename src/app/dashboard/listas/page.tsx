@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useShoppingLists, ShoppingList, ShoppingItem } from "@/hooks/useShoppingLists";
-import { FiShoppingCart, FiPlus, FiTrash2, FiCheck, FiSquare, FiList, FiDollarSign, FiMinus } from "react-icons/fi";
+import { FiShoppingCart, FiPlus, FiTrash2, FiCheck, FiSquare, FiList, FiDollarSign, FiMinus, FiFilter, FiSearch } from "react-icons/fi";
 import Swal from "sweetalert2";
 import { getBCVRate } from "@/lib/currency";
 
@@ -10,6 +10,9 @@ export default function ShoppingListsPage() {
     const { lists, loading, createList, deleteList, addItem, toggleItem, deleteItem, updateItemProgress } = useShoppingLists();
     const [selectedList, setSelectedList] = useState<ShoppingList | null>(null);
     const [bcvRate, setBcvRate] = useState(0);
+    const [filterText, setFilterText] = useState("");
+    const [itemFilterText, setItemFilterText] = useState("");
+    const [sortBy, setSortBy] = useState<"newest" | "oldest" | "az" | "za">("newest");
     const detailRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -110,6 +113,38 @@ export default function ShoppingListsPage() {
         return items.reduce((acc, item) => acc + (item.price * item.quantity), 0);
     };
 
+    const filteredLists = useMemo(() => {
+        let result = [...lists];
+
+        // Filter
+        if (filterText) {
+            result = result.filter(list => list.name.toLowerCase().includes(filterText.toLowerCase()));
+        }
+
+        // Sort
+        result.sort((a, b) => {
+            switch (sortBy) {
+                case "az":
+                    return a.name.localeCompare(b.name);
+                case "za":
+                    return b.name.localeCompare(a.name);
+                case "oldest":
+                    // Assuming createdAt is a timestamp object or date string that compares correctly
+                    // If it's a firebase timestamp, we might need .toMillis() or .seconds
+                    // For now, relying on the fact that lists comes sorted by Newest from firestore query.
+                    // But if we want to reverse it reliably we should probably parse.
+                    // Since default firestore query is desc createdAt (newest first).
+                    // We can just reverse the array for oldest, but sorting properly is safer.
+                    return (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0);
+                case "newest":
+                default:
+                    return (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0);
+            }
+        });
+
+        return result;
+    }, [lists, filterText, sortBy]);
+
     if (loading) {
         return (
             <div className="flex items-center justify-center min-h-[50vh]">
@@ -145,14 +180,48 @@ export default function ShoppingListsPage() {
                         <FiPlus size={24} /> Nueva Lista
                     </button>
 
+                    <div className="flex flex-col gap-3">
+                        <div className="relative">
+                            <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-500" />
+                            <input
+                                type="text"
+                                placeholder="Buscar listas..."
+                                value={filterText}
+                                onChange={(e) => setFilterText(e.target.value)}
+                                className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl py-2 pl-10 pr-4 text-white text-sm focus:outline-none focus:border-emerald-500/50 placeholder-slate-600 transition-all"
+                            />
+                        </div>
+
+                        <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+                            <button
+                                onClick={() => setSortBy("newest")}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors border ${sortBy === "newest" ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" : "bg-slate-900/30 text-slate-500 border-slate-700/30 hover:bg-slate-800"}`}
+                            >
+                                Más recientes
+                            </button>
+                            <button
+                                onClick={() => setSortBy("az")}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors border ${sortBy === "az" ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" : "bg-slate-900/30 text-slate-500 border-slate-700/30 hover:bg-slate-800"}`}
+                            >
+                                A-Z
+                            </button>
+                            <button
+                                onClick={() => setSortBy("za")}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors border ${sortBy === "za" ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" : "bg-slate-900/30 text-slate-500 border-slate-700/30 hover:bg-slate-800"}`}
+                            >
+                                Z-A
+                            </button>
+                        </div>
+                    </div>
+
                     <div className="space-y-3">
-                        {lists.length === 0 ? (
+                        {filteredLists.length === 0 ? (
                             <div className="bg-slate-900/50 backdrop-blur-md p-8 rounded-2xl border border-slate-700/50 text-center text-slate-500 flex flex-col items-center">
                                 <FiList size={32} className="mb-2 opacity-50" />
-                                No tienes listas creadas.
+                                {lists.length === 0 ? "No tienes listas creadas." : "No se encontraron listas."}
                             </div>
                         ) : (
-                            lists.map((list) => (
+                            filteredLists.map((list) => (
                                 <div
                                     key={list.id}
                                     onClick={() => setSelectedList(list)}
@@ -232,6 +301,19 @@ export default function ShoppingListsPage() {
                                         </button>
                                     </div>
 
+                                    <div className="flex flex-col gap-4 mb-4 relative z-10 px-1">
+                                        <div className="relative">
+                                            <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-500" />
+                                            <input
+                                                type="text"
+                                                placeholder="Buscar productos en la lista..."
+                                                value={itemFilterText}
+                                                onChange={(e) => setItemFilterText(e.target.value)}
+                                                className="w-full bg-slate-800/50 border border-slate-700/50 rounded-xl py-2 pl-10 pr-4 text-white text-sm focus:outline-none focus:border-emerald-500/50 placeholder-slate-600 transition-all"
+                                            />
+                                        </div>
+                                    </div>
+
                                     <div className="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar relative z-10">
                                         {(!currentList.items || currentList.items.length === 0) ? (
                                             <div className="flex flex-col items-center justify-center h-full text-slate-500 opacity-50">
@@ -240,89 +322,111 @@ export default function ShoppingListsPage() {
                                                 <p className="text-sm">Agrega productos con el botón superior.</p>
                                             </div>
                                         ) : (
-                                            currentList.items.map((item) => (
-                                                <div
-                                                    key={item.id}
-                                                    className={`flex items-center justify-between p-4 rounded-2xl border transition-all duration-300 group ${item.completed
-                                                        ? "bg-slate-900/30 border-slate-800 opacity-50"
-                                                        : "bg-slate-800/40 border-slate-700/30 hover:bg-slate-800/60 hover:border-emerald-500/30"
-                                                        }`}
-                                                >
-                                                    <div className="flex items-center gap-4">
-                                                        <button
-                                                            onClick={() => toggleItem(currentList.id, currentList.items, item.id)}
-                                                            className={`text-2xl transition-transform active:scale-90 ${item.completed ? "text-emerald-500" : "text-slate-600 hover:text-emerald-400"}`}
-                                                        >
-                                                            {item.completed ? <FiCheck /> : <FiSquare />}
-                                                        </button>
-                                                        <div>
-                                                            <p className={`font-semibold text-lg ${item.completed ? "text-slate-500 line-through decoration-2 decoration-slate-600" : "text-white"}`}>
-                                                                {item.name}
-                                                            </p>
-                                                            <div className="flex items-center gap-3 text-xs text-slate-500 font-medium mt-1">
-                                                                {item.quantity > 1 ? (
-                                                                    <div className="flex items-center bg-slate-800 rounded-lg overflow-hidden border border-slate-700/50 shadow-sm" onClick={(e) => e.stopPropagation()}>
-                                                                        <button
-                                                                            onClick={() => updateItemProgress(currentList.id, currentList.items, item.id, -1)}
-                                                                            className="px-2 py-1 hover:bg-slate-700/80 text-slate-400 hover:text-red-400 transition-colors border-r border-slate-700/50"
-                                                                        >
-                                                                            <FiMinus size={12} />
-                                                                        </button>
-                                                                        <span className={`px-2 py-1 min-w-[3rem] text-center font-bold ${item.purchasedQuantity && item.purchasedQuantity > 0 ? "text-emerald-400" : "text-slate-400"}`}>
-                                                                            {item.purchasedQuantity || 0} / {item.quantity}
-                                                                        </span>
-                                                                        <button
-                                                                            onClick={() => updateItemProgress(currentList.id, currentList.items, item.id, 1)}
-                                                                            className="px-2 py-1 hover:bg-slate-700/80 text-slate-400 hover:text-emerald-400 transition-colors border-l border-slate-700/50"
-                                                                        >
-                                                                            <FiPlus size={12} />
-                                                                        </button>
-                                                                    </div>
-                                                                ) : (
-                                                                    <span className="bg-slate-800 px-2 py-0.5 rounded-md">x{item.quantity}</span>
-                                                                )}
+                                            /* Filter and Sort Items Logic */
+                                            (() => {
+                                                let displayedItems = [...currentList.items];
 
-                                                                {item.price > 0 && <span>${item.price.toFixed(2)} c/u</span>}
+                                                if (itemFilterText) {
+                                                    displayedItems = displayedItems.filter(item =>
+                                                        item.name.toLowerCase().includes(itemFilterText.toLowerCase())
+                                                    );
+                                                }
+
+                                                // Sort: uncompleted first
+                                                displayedItems.sort((a, b) => Number(a.completed) - Number(b.completed));
+
+                                                if (displayedItems.length === 0 && itemFilterText) {
+                                                    return (
+                                                        <div className="text-center text-slate-500 py-10">
+                                                            No se encontraron productos con "{itemFilterText}".
+                                                        </div>
+                                                    );
+                                                }
+
+                                                return displayedItems.map((item) => (
+                                                    <div
+                                                        key={item.id}
+                                                        className={`flex items-center justify-between p-4 rounded-2xl border transition-all duration-300 group ${item.completed
+                                                            ? "bg-slate-900/30 border-slate-800 opacity-50"
+                                                            : "bg-slate-800/40 border-slate-700/30 hover:bg-slate-800/60 hover:border-emerald-500/30"
+                                                            }`}
+                                                    >
+                                                        <div className="flex items-center gap-4">
+                                                            <button
+                                                                onClick={() => toggleItem(currentList.id, currentList.items, item.id)}
+                                                                className={`text-2xl transition-transform active:scale-90 ${item.completed ? "text-emerald-500" : "text-slate-600 hover:text-emerald-400"}`}
+                                                            >
+                                                                {item.completed ? <FiCheck /> : <FiSquare />}
+                                                            </button>
+                                                            <div>
+                                                                <p className={`font-semibold text-lg ${item.completed ? "text-slate-500 line-through decoration-2 decoration-slate-600" : "text-white"}`}>
+                                                                    {item.name}
+                                                                </p>
+                                                                <div className="flex items-center gap-3 text-xs text-slate-500 font-medium mt-1">
+                                                                    {item.quantity > 1 ? (
+                                                                        <div className="flex items-center bg-slate-800 rounded-lg overflow-hidden border border-slate-700/50 shadow-sm" onClick={(e) => e.stopPropagation()}>
+                                                                            <button
+                                                                                onClick={() => updateItemProgress(currentList.id, currentList.items, item.id, -1)}
+                                                                                className="px-2 py-1 hover:bg-slate-700/80 text-slate-400 hover:text-red-400 transition-colors border-r border-slate-700/50"
+                                                                            >
+                                                                                <FiMinus size={12} />
+                                                                            </button>
+                                                                            <span className={`px-2 py-1 min-w-[3rem] text-center font-bold ${item.purchasedQuantity && item.purchasedQuantity > 0 ? "text-emerald-400" : "text-slate-400"}`}>
+                                                                                {item.purchasedQuantity || 0} / {item.quantity}
+                                                                            </span>
+                                                                            <button
+                                                                                onClick={() => updateItemProgress(currentList.id, currentList.items, item.id, 1)}
+                                                                                className="px-2 py-1 hover:bg-slate-700/80 text-slate-400 hover:text-emerald-400 transition-colors border-l border-slate-700/50"
+                                                                            >
+                                                                                <FiPlus size={12} />
+                                                                            </button>
+                                                                        </div>
+                                                                    ) : (
+                                                                        <span className="bg-slate-800 px-2 py-0.5 rounded-md">x{item.quantity}</span>
+                                                                    )}
+
+                                                                    {item.price > 0 && <span>${item.price.toFixed(2)} c/u</span>}
+                                                                </div>
                                                             </div>
                                                         </div>
+                                                        <div className="flex items-center gap-6">
+                                                            {item.price > 0 && (
+                                                                <div className="text-right">
+                                                                    {item.quantity > 1 && (item.purchasedQuantity || 0) > 0 && !item.completed ? (
+                                                                        <>
+                                                                            <p className="text-[10px] text-amber-500 font-bold uppercase tracking-wider mb-0.5">Falta por pagar</p>
+                                                                            <p className="font-bold text-amber-400 text-lg">
+                                                                                ${((item.quantity - (item.purchasedQuantity || 0)) * item.price).toFixed(2)}
+                                                                            </p>
+                                                                            <p className="text-[10px] text-slate-500">
+                                                                                Bs. {((item.quantity - (item.purchasedQuantity || 0)) * item.price * bcvRate).toLocaleString("es-VE", { maximumFractionDigits: 2 })}
+                                                                            </p>
+                                                                            <p className="text-[10px] text-slate-600 mt-1 border-t border-slate-700/50 pt-1">
+                                                                                Total: ${(item.quantity * item.price).toFixed(2)}
+                                                                            </p>
+                                                                        </>
+                                                                    ) : (
+                                                                        <>
+                                                                            <p className={`font-bold text-lg ${item.completed ? "text-slate-500 line-through" : "text-white"}`}>
+                                                                                ${(item.price * item.quantity).toFixed(2)}
+                                                                            </p>
+                                                                            <p className="text-[10px] text-slate-500">
+                                                                                Bs. {(item.price * item.quantity * bcvRate).toLocaleString("es-VE", { maximumFractionDigits: 2 })}
+                                                                            </p>
+                                                                        </>
+                                                                    )}
+                                                                </div>
+                                                            )}
+                                                            <button
+                                                                onClick={() => deleteItem(currentList.id, currentList.items, item.id)}
+                                                                className="p-2 text-slate-600 hover:text-white hover:bg-red-500 rounded-lg transition-all md:opacity-0 md:group-hover:opacity-100"
+                                                            >
+                                                                <FiTrash2 size={18} />
+                                                            </button>
+                                                        </div>
                                                     </div>
-                                                    <div className="flex items-center gap-6">
-                                                        {item.price > 0 && (
-                                                            <div className="text-right">
-                                                                {item.quantity > 1 && (item.purchasedQuantity || 0) > 0 && !item.completed ? (
-                                                                    <>
-                                                                        <p className="text-[10px] text-amber-500 font-bold uppercase tracking-wider mb-0.5">Falta por pagar</p>
-                                                                        <p className="font-bold text-amber-400 text-lg">
-                                                                            ${((item.quantity - (item.purchasedQuantity || 0)) * item.price).toFixed(2)}
-                                                                        </p>
-                                                                        <p className="text-[10px] text-slate-500">
-                                                                            Bs. {((item.quantity - (item.purchasedQuantity || 0)) * item.price * bcvRate).toLocaleString("es-VE", { maximumFractionDigits: 2 })}
-                                                                        </p>
-                                                                        <p className="text-[10px] text-slate-600 mt-1 border-t border-slate-700/50 pt-1">
-                                                                            Total: ${(item.quantity * item.price).toFixed(2)}
-                                                                        </p>
-                                                                    </>
-                                                                ) : (
-                                                                    <>
-                                                                        <p className={`font-bold text-lg ${item.completed ? "text-slate-500 line-through" : "text-white"}`}>
-                                                                            ${(item.price * item.quantity).toFixed(2)}
-                                                                        </p>
-                                                                        <p className="text-[10px] text-slate-500">
-                                                                            Bs. {(item.price * item.quantity * bcvRate).toLocaleString("es-VE", { maximumFractionDigits: 2 })}
-                                                                        </p>
-                                                                    </>
-                                                                )}
-                                                            </div>
-                                                        )}
-                                                        <button
-                                                            onClick={() => deleteItem(currentList.id, currentList.items, item.id)}
-                                                            className="p-2 text-slate-600 hover:text-white hover:bg-red-500 rounded-lg transition-all md:opacity-0 md:group-hover:opacity-100"
-                                                        >
-                                                            <FiTrash2 size={18} />
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            ))
+                                                ));
+                                            })()
                                         )}
                                     </div>
                                 </div>
