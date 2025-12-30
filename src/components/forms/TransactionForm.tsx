@@ -1,95 +1,128 @@
 "use client";
 
-import { useState } from "react";
-import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import { useState, useEffect } from "react";
+import { useForm, Controller } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { addDoc, collection, serverTimestamp, doc, updateDoc } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase";
 import Swal from "sweetalert2";
-import { FiDollarSign, FiCalendar, FiTag, FiFileText, FiSave, FiTrendingUp, FiTrendingDown } from "react-icons/fi";
+import { FiDollarSign, FiCalendar, FiTag, FiFileText, FiSave, FiTrendingUp, FiTrendingDown, FiX } from "react-icons/fi";
 import DatePicker, { registerLocale } from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { es } from 'date-fns/locale/es';
 import { getBCVRate } from "@/lib/currency";
-import { useEffect } from "react";
 import { useEditTransaction } from "@/contexts/EditTransactionContext";
-import { doc, updateDoc } from "firebase/firestore";
-import { FiX } from "react-icons/fi";
+import Input from "../ui/forms/Input";
+import CustomCurrencyInput from "../ui/forms/CurrencyInput";
+import Select from "../ui/forms/Select";
+import { motion, AnimatePresence } from "framer-motion";
 
 registerLocale('es', es);
 
 const CATEGORIES = [
-    "Comida", "Transporte", "Salud", "Salario", "Entretenimiento",
-    "Servicios", "Educación", "Ropa", "Otra"
+    { id: "Comida", name: "Comida", value: "Comida" },
+    { id: "Transporte", name: "Transporte", value: "Transporte" },
+    { id: "Salud", name: "Salud", value: "Salud" },
+    { id: "Salario", name: "Salario", value: "Salario" },
+    { id: "Entretenimiento", name: "Entretenimiento", value: "Entretenimiento" },
+    { id: "Servicios", name: "Servicios", value: "Servicios" },
+    { id: "Educación", name: "Educación", value: "Educación" },
+    { id: "Ropa", name: "Ropa", value: "Ropa" },
+    { id: "Otra", name: "Otra", value: "Otra" }
 ];
 
+const transactionSchema = z.object({
+    amount: z.string().min(1, "El monto es obligatorio"),
+    description: z.string().optional(),
+    category: z.string().min(1, "La categoría es obligatoria"),
+    customCategory: z.string().optional(),
+    date: z.date(),
+    type: z.enum(["ingreso", "gasto"]),
+    currency: z.enum(["USD", "VES"]),
+    exchangeRate: z.string().optional(),
+    vesAmount: z.string().optional(),
+}).refine(data => {
+    if (data.category === "Otra" && (!data.customCategory || data.customCategory.trim() === "")) {
+        return false;
+    }
+    return true;
+}, {
+    message: "Especifica la categoría",
+    path: ["customCategory"],
+});
+
+type TransactionFormData = z.infer<typeof transactionSchema>;
+
 export default function TransactionForm() {
-    const [amount, setAmount] = useState("");
-    const [currency, setCurrency] = useState<"USD" | "VES">("USD");
-    const [vesAmount, setVesAmount] = useState("");
-    const [exchangeRate, setExchangeRate] = useState("50"); // Tasa por defecto temporal
-    const [type, setType] = useState<"ingreso" | "gasto">("gasto");
-    const [category, setCategory] = useState("Comida");
-    const [customCategory, setCustomCategory] = useState("");
-    const [description, setDescription] = useState("");
-
-    const [date, setDate] = useState<Date>(new Date());
-    const [loading, setLoading] = useState(false);
     const { transactionToEdit, clearEditing } = useEditTransaction();
+    const [loading, setLoading] = useState(false);
+    const [rate, setRate] = useState<number>(0);
 
+    const { control, handleSubmit, watch, setValue, reset, formState: { errors } } = useForm<TransactionFormData>({
+        resolver: zodResolver(transactionSchema),
+        defaultValues: {
+            amount: "",
+            description: "",
+            category: "Comida",
+            customCategory: "",
+            date: new Date(),
+            type: "gasto",
+            currency: "USD",
+            exchangeRate: "",
+            vesAmount: "",
+        }
+    });
+
+    const currency = watch("currency");
+    const amount = watch("amount");
+    const vesAmount = watch("vesAmount");
+    const exchangeRate = watch("exchangeRate");
+    const category = watch("category");
+
+    // Fetch Rate on Mount
+    useEffect(() => {
+        getBCVRate().then(r => {
+            if (r) {
+                setRate(r);
+                setValue("exchangeRate", r.toString());
+            }
+        });
+    }, [setValue]);
+
+    // Populate form if editing
     useEffect(() => {
         if (transactionToEdit) {
-            setAmount(transactionToEdit.amount.toString());
-            setType(transactionToEdit.type);
+            const isStandardCategory = CATEGORIES.some(c => c.value === transactionToEdit.category);
 
-            // Check if it's a standard category or custom
-            if (CATEGORIES.includes(transactionToEdit.category)) {
-                setCategory(transactionToEdit.category);
-                setCustomCategory("");
-            } else {
-                setCategory("Otra");
-                setCustomCategory(transactionToEdit.category);
-            }
-
-            setDescription(transactionToEdit.description);
-            setDate(new Date(transactionToEdit.date));
-            // Note: Currency/Rate logic would need extended Transaction interface to be fully perfect,
-            // but for now we assume USD or inferred.
-            // If you added currency/rate to Firestore, you should load it here too.
-        }
-    }, [transactionToEdit]);
-
-    useEffect(() => {
-        if (currency === "VES") {
-            getBCVRate().then(rate => {
-                if (rate && rate > 0) {
-                    setExchangeRate(rate.toString());
-                }
+            reset({
+                amount: transactionToEdit.amount.toString(),
+                description: transactionToEdit.description || "",
+                category: isStandardCategory ? transactionToEdit.category : "Otra",
+                customCategory: isStandardCategory ? "" : transactionToEdit.category,
+                date: new Date(transactionToEdit.date),
+                type: transactionToEdit.type,
+                currency: transactionToEdit.currency || "USD",
+                exchangeRate: transactionToEdit.exchangeRate?.toString() || rate.toString(),
+                vesAmount: transactionToEdit.currency === "VES" && transactionToEdit.originalAmount // Assuming logic
+                    ? transactionToEdit.originalAmount.toString()
+                    : "",
             });
         }
-    }, [currency]);
+    }, [transactionToEdit, reset, rate]);
 
-    // Calcular USD cuando cambie el monto en VES o la tasa
-    const handleVesChange = (val: string) => {
-        setVesAmount(val);
-        const rate = parseFloat(exchangeRate);
-        const ves = parseFloat(val);
-        if (!isNaN(rate) && !isNaN(ves) && rate > 0) {
-            setAmount((ves / rate).toFixed(2));
-        } else {
-            setAmount("");
+    // Calculate USD from VES
+    useEffect(() => {
+        if (currency === "VES" && vesAmount && exchangeRate) {
+            const v = parseFloat(vesAmount);
+            const r = parseFloat(exchangeRate);
+            if (!isNaN(v) && !isNaN(r) && r > 0) {
+                setValue("amount", (v / r).toFixed(2));
+            }
         }
-    };
+    }, [currency, vesAmount, exchangeRate, setValue]);
 
-    const handleRateChange = (val: string) => {
-        setExchangeRate(val);
-        const rate = parseFloat(val);
-        const ves = parseFloat(vesAmount);
-        if (!isNaN(rate) && !isNaN(ves) && rate > 0) {
-            setAmount((ves / rate).toFixed(2));
-        }
-    };
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
+    const onSubmit = async (data: TransactionFormData) => {
         setLoading(true);
 
         if (!auth.currentUser) {
@@ -99,312 +132,290 @@ export default function TransactionForm() {
         }
 
         try {
-            const finalCategory = category === "Otra" ? customCategory.trim() : category;
+            const finalCategory = data.category === "Otra" ? data.customCategory!.trim() : data.category;
 
-            if (category === "Otra" && !finalCategory) {
-                Swal.fire("Error", "Debes especificar la categoría", "error");
-                setLoading(false);
-                return;
-            }
+            const transactionData = {
+                amount: parseFloat(data.amount),
+                type: data.type,
+                category: finalCategory,
+                description: data.description || "",
+                date: data.date,
+                currency: data.currency,
+                originalAmount: data.currency === "VES" ? parseFloat(data.vesAmount || "0") : parseFloat(data.amount),
+                exchangeRate: data.currency === "VES" ? parseFloat(data.exchangeRate || "1") : 1,
+            };
 
             if (transactionToEdit) {
-                // Update existing
-                await updateDoc(doc(db, "transactions", transactionToEdit.id), {
-                    amount: parseFloat(amount),
-                    type,
-                    category: finalCategory,
-                    description,
-                    date: date,
-                    currency: currency,
-                    originalAmount: currency === "VES" ? parseFloat(vesAmount) : parseFloat(amount),
-                    exchangeRate: currency === "VES" ? parseFloat(exchangeRate) : 1,
-                    // Don't update createdAt
-                });
-
+                await updateDoc(doc(db, "transactions", transactionToEdit.id), transactionData);
                 Swal.fire({
-                    icon: "success",
-                    title: "¡Actualizado!",
-                    text: "El movimiento ha sido modificado.",
-                    timer: 1500,
-                    showConfirmButton: false,
-                    background: "#1f2937",
-                    color: "#fff",
+                    icon: "success", title: "Actualizado", text: "El movimiento ha sido modificado.",
+                    timer: 1500, showConfirmButton: false, background: "#1f2937", color: "#fff",
                 });
-
                 clearEditing();
             } else {
-                // Create new
                 await addDoc(collection(db, "transactions"), {
                     userId: auth.currentUser.uid,
-                    amount: parseFloat(amount),
-                    type,
-                    category: finalCategory,
-                    description,
-                    date: date,
+                    ...transactionData,
                     period: "mensual",
-                    currency: currency,
-                    originalAmount: currency === "VES" ? parseFloat(vesAmount) : parseFloat(amount),
-                    exchangeRate: currency === "VES" ? parseFloat(exchangeRate) : 1,
                     createdAt: serverTimestamp(),
                 });
-
                 Swal.fire({
-                    icon: "success",
-                    title: "¡Guardado!",
-                    text: "El movimiento se ha registrado correctamente.",
-                    timer: 1500,
-                    showConfirmButton: false,
-                    background: "#1f2937",
-                    color: "#fff",
+                    icon: "success", title: "Guardado", text: "El movimiento se ha registrado correctamente.",
+                    timer: 1500, showConfirmButton: false, background: "#1f2937", color: "#fff",
+                });
+
+                // Reset form but keep some defaults
+                reset({
+                    amount: "", description: "", category: "Comida", customCategory: "",
+                    date: new Date(), type: "gasto", currency: "USD",
+                    exchangeRate: rate.toString(), vesAmount: ""
                 });
             }
-
-            setAmount("");
-            setDescription("");
-            setCategory("Comida");
-            setCustomCategory("");
-            setVesAmount("");
-            // Mantener la tasa para facilitar siguientes registros
-
         } catch (error) {
             console.error(error);
-            Swal.fire({
-                icon: "error",
-                title: "Error",
-                text: "No se pudo guardar el movimiento.",
-                background: "#1f2937",
-                color: "#fff",
-            });
+            Swal.fire({ icon: "error", title: "Error", text: "No se pudo guardar.", background: "#1f2937", color: "#fff" });
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-5 md:p-8 rounded-3xl border border-slate-700/50 shadow-2xl relative overflow-hidden backdrop-blur-xl">
+        <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-6 md:p-8 rounded-3xl border border-slate-700/50 shadow-2xl relative overflow-hidden backdrop-blur-xl">
             {/* Decorative Background Elements */}
             <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
 
-            <h2 className="text-xl md:text-2xl font-bold text-white mb-6 md:mb-8 flex items-center justify-between relative z-10">
+            <div className="flex items-center justify-between mb-8 relative z-10">
                 <div className="flex items-center gap-3">
                     <span className="p-3 bg-gradient-to-tr from-emerald-500/20 to-teal-500/20 text-emerald-400 rounded-2xl border border-emerald-500/20 shadow-inner">
                         <FiDollarSign size={24} />
                     </span>
-                    {transactionToEdit ? "Editar Movimiento" : "Nuevo Movimiento"}
+                    <h2 className="text-xl md:text-2xl font-bold text-white">
+                        {transactionToEdit ? "Editar Movimiento" : "Nuevo Movimiento"}
+                    </h2>
                 </div>
                 {transactionToEdit && (
                     <button
                         onClick={() => {
                             clearEditing();
-                            setAmount("");
-                            setDescription("");
-                            setCategory("Comida");
-                            setCustomCategory("");
-                            setVesAmount("");
+                            reset({
+                                amount: "", description: "", category: "Comida", customCategory: "",
+                                date: new Date(), type: "gasto", currency: "USD",
+                                exchangeRate: rate.toString(), vesAmount: ""
+                            });
                         }}
-                        className="text-slate-400 hover:text-white transition-colors"
+                        className="p-2 text-slate-400 hover:text-white hover:bg-slate-700/50 rounded-xl transition-all"
                     >
                         <FiX size={24} />
                     </button>
                 )}
-            </h2>
+            </div>
 
-            <form onSubmit={handleSubmit} className="space-y-6 relative z-10">
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 relative z-10">
 
-                {/* Tipo de Movimiento Toggle */}
-                <div className="p-1.5 bg-slate-950/50 rounded-2xl flex border border-slate-800/50 shadow-inner">
-                    <button
-                        type="button"
-                        onClick={() => setType("ingreso")}
-                        className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-bold rounded-xl transition-all duration-300 ${type === "ingreso"
-                            ? "bg-gradient-to-r from-emerald-600 to-emerald-500 text-white shadow-lg shadow-emerald-500/25"
-                            : "text-slate-400 hover:text-white hover:bg-slate-800/50"
-                            }`}
-                    >
-                        <FiTrendingUp /> Ingreso
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => setType("gasto")}
-                        className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-bold rounded-xl transition-all duration-300 ${type === "gasto"
-                            ? "bg-gradient-to-r from-red-600 to-red-500 text-white shadow-lg shadow-red-500/25"
-                            : "text-slate-400 hover:text-white hover:bg-slate-800/50"
-                            }`}
-                    >
-                        <FiTrendingDown /> Gasto
-                    </button>
+                {/* Type Toggle */}
+                <div className="grid grid-cols-2 gap-3 p-1.5 bg-slate-950/50 rounded-2xl border border-slate-800/50 text-sm">
+                    <Controller
+                        control={control}
+                        name="type"
+                        render={({ field }) => (
+                            <>
+                                <button
+                                    type="button"
+                                    onClick={() => field.onChange("ingreso")}
+                                    className={`flex items-center justify-center gap-2 py-3 rounded-xl font-bold transition-all ${field.value === "ingreso"
+                                        ? "bg-gradient-to-r from-emerald-600 to-emerald-500 text-white shadow-lg shadow-emerald-500/20"
+                                        : "text-slate-400 hover:text-white"
+                                        }`}
+                                >
+                                    <FiTrendingUp /> Ingreso
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => field.onChange("gasto")}
+                                    className={`flex items-center justify-center gap-2 py-3 rounded-xl font-bold transition-all ${field.value === "gasto"
+                                        ? "bg-gradient-to-r from-red-600 to-red-500 text-white shadow-lg shadow-red-500/20"
+                                        : "text-slate-400 hover:text-white"
+                                        }`}
+                                >
+                                    <FiTrendingDown /> Gasto
+                                </button>
+                            </>
+                        )}
+                    />
                 </div>
 
-                {/* Monto */}
-                {/* Moneda Toggle */}
-                <div className="flex gap-4">
-                    <div className="flex-1">
-                        <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 ml-1">Moneda</label>
-                        <div className="p-1 bg-slate-800/50 rounded-xl flex border border-slate-700/50">
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setCurrency("USD");
-                                    setAmount("");
-                                    setVesAmount("");
-                                }}
-                                className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${currency === "USD"
-                                    ? "bg-gradient-to-tr from-emerald-500 to-emerald-400 text-white shadow-lg"
-                                    : "text-slate-400 hover:text-white"
-                                    }`}
-                            >
-                                USD
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setCurrency("VES");
-                                    setAmount("");
-                                    setVesAmount("");
-                                }} // Reset al cambiar
-                                className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${currency === "VES"
-                                    ? "bg-gradient-to-tr from-blue-500 to-blue-400 text-white shadow-lg"
-                                    : "text-slate-400 hover:text-white"
-                                    }`}
-                            >
-                                Bs (VES)
-                            </button>
-                        </div>
-                    </div>
-
-                    {currency === "VES" && (
-                        <div className="w-1/3">
-                            <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 ml-1">Tasa</label>
-                            <input
-                                type="number"
-                                step="0.01"
-                                value={exchangeRate}
-                                onChange={(e) => handleRateChange(e.target.value)}
-                                className="w-full bg-slate-800/50 border border-slate-700/50 text-white font-bold rounded-xl py-2.5 px-3 outline-none focus:ring-2 focus:ring-emerald-500/30 text-center"
-                                placeholder="0.00"
+                {/* Amount Section */}
+                <div className="space-y-4">
+                    <div className="flex gap-4">
+                        {/* Currency Toggle */}
+                        <div className="flex-1">
+                            <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 ml-1">Moneda</label>
+                            <Controller
+                                control={control}
+                                name="currency"
+                                render={({ field }) => (
+                                    <div className="flex p-1 bg-slate-800/50 rounded-xl border border-slate-700/50">
+                                        {(["USD", "VES"] as const).map((curr) => (
+                                            <button
+                                                key={curr}
+                                                type="button"
+                                                onClick={() => {
+                                                    field.onChange(curr);
+                                                    setValue("amount", "");
+                                                    setValue("vesAmount", "");
+                                                }}
+                                                className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${field.value === curr
+                                                    ? curr === "USD" ? "bg-emerald-500 text-white shadow-md" : "bg-blue-500 text-white shadow-md"
+                                                    : "text-slate-400 hover:text-white"
+                                                    }`}
+                                            >
+                                                {curr === "VES" ? "Bs (VES)" : "USD"}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
                             />
                         </div>
-                    )}
-                </div>
+                        {/* Rate Input */}
+                        <AnimatePresence>
+                            {currency === "VES" && (
+                                <motion.div
+                                    initial={{ opacity: 0, width: 0 }}
+                                    animate={{ opacity: 1, width: "33%" }}
+                                    exit={{ opacity: 0, width: 0 }}
+                                    className="overflow-hidden"
+                                >
+                                    <Input
+                                        label="Tasa"
+                                        type="number"
+                                        step="0.01"
+                                        placeholder="0.00"
+                                        {...control.register("exchangeRate")}
+                                        error={errors.exchangeRate}
+                                        className="text-center"
+                                    />
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+                    </div>
 
-                {/* Monto */}
-                <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 ml-1">
-                        Monto {currency === "VES" ? "(Bolívares)" : "(Dólares)"}
-                    </label>
-                    <div className="relative group">
-                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                            <span className="text-slate-400 font-semibold text-lg">{currency === "VES" ? "Bs" : "$"}</span>
-                        </div>
-                        <input
-                            type="number"
-                            step="0.01"
-                            required
-                            value={currency === "VES" ? vesAmount : amount}
-                            onChange={(e) => {
-                                if (currency === "VES") handleVesChange(e.target.value);
-                                else setAmount(e.target.value);
-                            }}
-                            className="w-full bg-slate-800/50 border border-slate-700/50 text-white text-lg font-semibold rounded-2xl py-4 pl-12 pr-4 outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/50 transition-all placeholder:text-slate-600 hover:border-slate-600 hover:bg-slate-800"
-                            placeholder="0.00"
+                    <div className="relative">
+                        <Controller
+                            control={control}
+                            name={currency === "VES" ? "vesAmount" : "amount"}
+                            render={({ field }) => (
+                                <CustomCurrencyInput
+                                    label={`Monto ${currency === "VES" ? "(Bolívares)" : "(Dólares)"}`}
+                                    placeholder="0.00"
+                                    prefix={currency === "VES" ? "Bs. " : "$ "}
+                                    decimalsLimit={2}
+                                    onValueChange={(value) => field.onChange(value || "")}
+                                    value={field.value}
+                                    error={currency === "VES" ? errors.vesAmount : errors.amount}
+                                />
+                            )}
                         />
                         {currency === "VES" && amount && (
-                            <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
+                            <motion.div
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className="absolute top-9 right-4 pointer-events-none"
+                            >
                                 <span className="text-emerald-400 font-bold text-sm bg-emerald-500/10 px-2 py-1 rounded-lg border border-emerald-500/20">
                                     ≈ ${amount}
                                 </span>
-                            </div>
+                            </motion.div>
                         )}
                     </div>
                 </div>
 
-                {/* Grid para Categoría y Fecha */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Categoría */}
+                    {/* Category */}
                     <div>
-                        <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 ml-1">Categoría</label>
-                        <div className="relative group">
-                            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                <FiTag className="text-slate-400" />
-                            </div>
-                            <select
-                                value={category}
-                                onChange={(e) => setCategory(e.target.value)}
-                                className="w-full bg-slate-800/50 border border-slate-700/50 text-slate-200 text-sm font-medium rounded-2xl py-4 pl-11 pr-4 outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/50 transition-all appearance-none cursor-pointer hover:border-slate-600 hover:bg-slate-800"
-                            >
-                                {CATEGORIES.map((cat) => (
-                                    <option key={cat} value={cat} className="bg-slate-800">{cat}</option>
-                                ))}
-                            </select>
-                        </div>
-
-                        {category === "Otra" && (
-                            <div className="mt-3 relative group">
-                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                    <FiTag className="text-emerald-400" />
-                                </div>
-                                <input
-                                    type="text"
-                                    required
-                                    value={customCategory}
-                                    onChange={(e) => {
-                                        const val = e.target.value;
-                                        if (/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]*$/.test(val)) {
-                                            setCustomCategory(val);
-                                        }
-                                    }}
-                                    className="w-full bg-slate-800/50 border border-emerald-500/50 text-white text-sm font-medium rounded-2xl py-4 pl-11 pr-4 outline-none focus:ring-2 focus:ring-emerald-500/30 transition-all placeholder:text-slate-500"
-                                    placeholder="Especifica la categoría..."
+                        <Controller
+                            control={control}
+                            name="category"
+                            render={({ field }) => (
+                                <Select
+                                    label="Categoría"
+                                    options={CATEGORIES}
+                                    value={field.value}
+                                    onChange={field.onChange}
+                                    error={errors.category}
+                                    icon={<FiTag />}
                                 />
-                            </div>
-                        )}
+                            )}
+                        />
+                        <AnimatePresence>
+                            {category === "Otra" && (
+                                <motion.div
+                                    initial={{ opacity: 0, height: 0, marginTop: 0 }}
+                                    animate={{ opacity: 1, height: "auto", marginTop: 12 }}
+                                    exit={{ opacity: 0, height: 0, marginTop: 0 }}
+                                >
+                                    <Input
+                                        placeholder="Especifica la categoría..."
+                                        icon={<FiTag className="text-emerald-400" />}
+                                        {...control.register("customCategory")}
+                                        error={errors.customCategory}
+                                    />
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
                     </div>
 
-                    {/* Fecha */}
+                    {/* Date */}
                     <div>
                         <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 ml-1">Fecha</label>
                         <div className="relative group">
-                            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none z-10">
-                                <FiCalendar className="text-slate-400" />
+                            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none z-10 transition-colors">
+                                <FiCalendar className="text-slate-400 group-focus-within:text-emerald-400" />
                             </div>
-                            <DatePicker
-                                selected={date}
-                                onChange={(date: Date | null) => date && setDate(date)}
-                                locale="es"
-                                dateFormat="dd/MM/yyyy"
-                                className="w-full bg-slate-800/50 border border-slate-700/50 text-slate-200 text-sm font-medium rounded-2xl py-4 pl-11 pr-4 outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/50 transition-all cursor-pointer hover:border-slate-600 hover:bg-slate-800"
-                                wrapperClassName="w-full"
-                                calendarClassName="!bg-slate-800 !border-slate-700 !text-white !font-sans !shadow-xl !rounded-2xl overflow-hidden"
-                                dayClassName={(date) => "hover:!bg-emerald-500 hover:!text-white !text-slate-300 !rounded-lg transition-all"}
-                                weekDayClassName={() => "!text-slate-500 !uppercase !text-xs !tracking-wider"}
-                                popperClassName="!z-50"
+                            <Controller
+                                control={control}
+                                name="date"
+                                render={({ field }) => (
+                                    <DatePicker
+                                        selected={field.value}
+                                        onChange={(date: Date | null) => field.onChange(date)}
+                                        locale="es"
+                                        dateFormat="dd/MM/yyyy"
+                                        className="w-full bg-slate-800/50 border border-slate-700/50 text-slate-200 text-sm font-medium rounded-2xl py-3.5 pl-11 pr-4 outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/50 transition-all cursor-pointer hover:border-slate-600 hover:bg-slate-800"
+                                        wrapperClassName="w-full"
+                                        calendarClassName="!bg-slate-800 !border-slate-700 !text-white !font-sans !shadow-xl !rounded-2xl overflow-hidden"
+                                        dayClassName={(date: Date) => "hover:!bg-emerald-500 hover:!text-white !text-slate-300 !rounded-lg transition-all"}
+                                        weekDayClassName={() => "!text-slate-500 !uppercase !text-xs !tracking-wider"}
+                                        popperClassName="!z-50"
+                                    />
+                                )}
                             />
                         </div>
                     </div>
                 </div>
 
-                {/* Descripción */}
+                {/* Description */}
                 <div>
                     <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 ml-1">Descripción</label>
-                    <div className="relative group">
-                        <div className="absolute inset-y-0 left-0 pl-4 pt-4 pointer-events-none">
-                            <FiFileText className="text-slate-400" />
+                    <div className="relative">
+                        <div className="absolute top-4 left-4 pointer-events-none text-slate-400">
+                            <FiFileText />
                         </div>
                         <textarea
                             rows={3}
-                            value={description}
-                            onChange={(e) => setDescription(e.target.value)}
+                            {...control.register("description")}
                             className="w-full bg-slate-800/50 border border-slate-700/50 text-slate-200 text-sm font-medium rounded-2xl py-3.5 pl-11 pr-4 outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/50 transition-all placeholder:text-slate-600 resize-none hover:border-slate-600 hover:bg-slate-800"
                             placeholder="Detalles opcionales..."
                         />
                     </div>
                 </div>
 
-                {/* Submit Button */}
-                <button
+                {/* Action Button */}
+                <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
                     type="submit"
                     disabled={loading}
-                    className="w-full bg-gradient-to-r from-emerald-500 to-emerald-400 hover:from-emerald-400 hover:to-emerald-300 text-white font-bold py-4 rounded-2xl shadow-lg shadow-emerald-500/20 transform transition-all duration-300 hover:-translate-y-1 active:translate-y-0 flex items-center justify-center space-x-2 disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+                    className="w-full bg-gradient-to-r from-emerald-500 to-emerald-400 hover:from-emerald-400 hover:to-emerald-300 text-white font-bold py-4 rounded-2xl shadow-lg shadow-emerald-500/20 flex items-center justify-center space-x-2 disabled:opacity-70 disabled:cursor-not-allowed"
                 >
                     {loading ? (
                         <span className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
@@ -414,7 +425,7 @@ export default function TransactionForm() {
                             <span>{transactionToEdit ? "ACTUALIZAR MOVIMIENTO" : "GUARDAR MOVIMIENTO"}</span>
                         </>
                     )}
-                </button>
+                </motion.button>
 
             </form>
         </div>

@@ -7,20 +7,31 @@ import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import Swal from "sweetalert2";
 import { FiMail, FiLock, FiArrowRight, FiEye, FiEyeOff } from "react-icons/fi";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import Input from "@/components/ui/forms/Input";
+
+const loginSchema = z.object({
+    email: z.string().email("Correo electrónico inválido"),
+    password: z.string().min(1, "La contraseña es obligatoria"),
+});
+
+type LoginFormData = z.infer<typeof loginSchema>;
 
 export default function LoginPage() {
     const router = useRouter();
-    const [email, setEmail] = useState("");
-    const [password, setPassword] = useState("");
-    const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
 
-    const handleLogin = async (e: React.FormEvent) => {
-        e.preventDefault();
+    const { register, handleSubmit, formState: { errors } } = useForm<LoginFormData>({
+        resolver: zodResolver(loginSchema),
+    });
+
+    const onSubmit = async (data: LoginFormData) => {
         setLoading(true);
-
         try {
-            await signInWithEmailAndPassword(auth, email, password);
+            await signInWithEmailAndPassword(auth, data.email, data.password);
             Swal.fire({
                 icon: "success",
                 title: "¡Bienvenido de nuevo!",
@@ -34,10 +45,12 @@ export default function LoginPage() {
         } catch (error: any) {
             console.error(error);
             let errorMessage = "Ocurrió un error al iniciar sesión.";
-            if (error.code === "auth/user-not-found" || error.code === "auth/wrong-password") {
+            if (error.code === "auth/user-not-found" || error.code === "auth/wrong-password" || error.code === "auth/invalid-credential") {
                 errorMessage = "Credenciales incorrectas.";
             } else if (error.code === "auth/invalid-email") {
                 errorMessage = "El correo electrónico no es válido.";
+            } else if (error.code === "auth/too-many-requests") {
+                errorMessage = "Demasiados intentos fallidos. Intenta más tarde.";
             }
 
             Swal.fire({
@@ -51,8 +64,6 @@ export default function LoginPage() {
             setLoading(false);
         }
     };
-
-
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4 relative overflow-hidden">
@@ -69,47 +80,33 @@ export default function LoginPage() {
                     <p className="text-slate-400">Ingresa a tu control financiero premium</p>
                 </div>
 
-                <form onSubmit={handleLogin} className="space-y-6">
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium text-slate-300 ml-1">Correo Electrónico</label>
-                        <div className="relative group">
-                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                <FiMail className="text-slate-500 group-focus-within:text-emerald-400 transition-colors" />
-                            </div>
-                            <input
-                                type="email"
-                                required
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                className="w-full bg-slate-900/50 border border-slate-700 text-white rounded-xl py-3 pl-10 pr-4 focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 hover:border-slate-600 transition-all outline-none placeholder:text-slate-600"
-                                placeholder="ejemplo@correo.com"
-                            />
-                        </div>
-                    </div>
+                <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+                    <Input
+                        label="Correo Electrónico"
+                        type="email"
+                        placeholder="ejemplo@correo.com"
+                        icon={<FiMail />}
+                        {...register("email")}
+                        error={errors.email}
+                    />
 
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium text-slate-300 ml-1">Contraseña</label>
-                        <div className="relative group">
-                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                <FiLock className="text-slate-500 group-focus-within:text-emerald-400 transition-colors" />
-                            </div>
-                            <input
-                                type={showPassword ? "text" : "password"}
-                                required
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                className="w-full bg-slate-900/50 border border-slate-700 text-white rounded-xl py-3 pl-10 pr-12 focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 hover:border-slate-600 transition-all outline-none placeholder:text-slate-600"
-                                placeholder="••••••••"
-                            />
+                    <Input
+                        label="Contraseña"
+                        type={showPassword ? "text" : "password"}
+                        placeholder="••••••••"
+                        icon={<FiLock />}
+                        {...register("password")}
+                        error={errors.password}
+                        rightElement={
                             <button
                                 type="button"
                                 onClick={() => setShowPassword(!showPassword)}
-                                className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 hover:text-emerald-400 focus:outline-none transition-colors"
+                                className="text-slate-500 hover:text-emerald-400 focus:outline-none transition-colors"
                             >
-                                {showPassword ? <FiEyeOff className="text-lg" /> : <FiEye className="text-lg" />}
+                                {showPassword ? <FiEyeOff size={20} /> : <FiEye size={20} />}
                             </button>
-                        </div>
-                    </div>
+                        }
+                    />
 
                     <button
                         type="submit"
@@ -126,8 +123,6 @@ export default function LoginPage() {
                         )}
                     </button>
                 </form>
-
-
 
                 <p className="mt-8 text-center text-sm text-slate-400">
                     ¿No tienes una cuenta?{" "}

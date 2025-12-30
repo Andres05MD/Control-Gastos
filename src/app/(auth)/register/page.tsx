@@ -8,34 +8,45 @@ import { auth, db } from "@/lib/firebase";
 import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 import Swal from "sweetalert2";
 import { FiUser, FiMail, FiLock, FiArrowRight, FiEye, FiEyeOff } from "react-icons/fi";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import Input from "@/components/ui/forms/Input";
+
+const registerSchema = z.object({
+    name: z.string().min(2, "El nombre debe tener al menos 2 caracteres"),
+    email: z.string().email("Correo electrónico inválido"),
+    password: z.string().min(6, "La contraseña debe tener al menos 6 caracteres"),
+});
+
+type RegisterFormData = z.infer<typeof registerSchema>;
 
 export default function RegisterPage() {
     const router = useRouter();
-    const [name, setName] = useState("");
-    const [email, setEmail] = useState("");
-    const [password, setPassword] = useState("");
-    const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
 
-    const handleRegister = async (e: React.FormEvent) => {
-        e.preventDefault();
+    const { register, handleSubmit, formState: { errors } } = useForm<RegisterFormData>({
+        resolver: zodResolver(registerSchema),
+    });
+
+    const onSubmit = async (data: RegisterFormData) => {
         setLoading(true);
-
         try {
             // 1. Create Auth User
-            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+            const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
             const user = userCredential.user;
 
             // 2. Update Auth Profile
             await updateProfile(user, {
-                displayName: name,
+                displayName: data.name,
             });
 
             // 3. Create User Document in Firestore
             await setDoc(doc(db, "users", user.uid), {
                 uid: user.uid,
-                displayName: name,
-                email: email,
+                displayName: data.name,
+                email: data.email,
                 plan: "free",
                 createdAt: serverTimestamp(),
             });
@@ -86,64 +97,42 @@ export default function RegisterPage() {
                     <p className="text-slate-400">Comienza a tomar el control de tu dinero</p>
                 </div>
 
-                <form onSubmit={handleRegister} className="space-y-5">
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium text-slate-300 ml-1">Nombre Completo</label>
-                        <div className="relative group">
-                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                <FiUser className="text-slate-500 group-focus-within:text-emerald-400 transition-colors" />
-                            </div>
-                            <input
-                                type="text"
-                                required
-                                value={name}
-                                onChange={(e) => setName(e.target.value)}
-                                className="w-full bg-slate-900/50 border border-slate-700 text-white rounded-xl py-3 pl-10 pr-4 focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 hover:border-slate-600 transition-all outline-none placeholder:text-slate-600"
-                                placeholder="Juan Pérez"
-                            />
-                        </div>
-                    </div>
+                <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+                    <Input
+                        label="Nombre Completo"
+                        type="text"
+                        placeholder="Juan Pérez"
+                        icon={<FiUser />}
+                        {...register("name")}
+                        error={errors.name}
+                    />
 
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium text-slate-300 ml-1">Correo Electrónico</label>
-                        <div className="relative group">
-                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                <FiMail className="text-slate-500 group-focus-within:text-emerald-400 transition-colors" />
-                            </div>
-                            <input
-                                type="email"
-                                required
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                className="w-full bg-slate-900/50 border border-slate-700 text-white rounded-xl py-3 pl-10 pr-4 focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 hover:border-slate-600 transition-all outline-none placeholder:text-slate-600"
-                                placeholder="ejemplo@correo.com"
-                            />
-                        </div>
-                    </div>
+                    <Input
+                        label="Correo Electrónico"
+                        type="email"
+                        placeholder="ejemplo@correo.com"
+                        icon={<FiMail />}
+                        {...register("email")}
+                        error={errors.email}
+                    />
 
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium text-slate-300 ml-1">Contraseña</label>
-                        <div className="relative group">
-                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                <FiLock className="text-slate-500 group-focus-within:text-emerald-400 transition-colors" />
-                            </div>
-                            <input
-                                type={showPassword ? "text" : "password"}
-                                required
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                className="w-full bg-slate-900/50 border border-slate-700 text-white rounded-xl py-3 pl-10 pr-10 focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 hover:border-slate-600 transition-all outline-none placeholder:text-slate-600"
-                                placeholder="••••••••"
-                            />
+                    <Input
+                        label="Contraseña"
+                        type={showPassword ? "text" : "password"}
+                        placeholder="••••••••"
+                        icon={<FiLock />}
+                        {...register("password")}
+                        error={errors.password}
+                        rightElement={
                             <button
                                 type="button"
                                 onClick={() => setShowPassword(!showPassword)}
-                                className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 hover:text-emerald-400 transition-colors focus:outline-none cursor-pointer z-20"
+                                className="text-slate-500 hover:text-emerald-400 transition-colors focus:outline-none cursor-pointer"
                             >
                                 {showPassword ? <FiEyeOff size={20} /> : <FiEye size={20} />}
                             </button>
-                        </div>
-                    </div>
+                        }
+                    />
 
                     <button
                         type="submit"

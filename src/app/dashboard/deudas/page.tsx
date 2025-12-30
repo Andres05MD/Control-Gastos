@@ -1,0 +1,359 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { useDebts, Debt, Payment } from "@/hooks/useDebts";
+import { FiPlus, FiTrash2, FiCheckCircle, FiDollarSign, FiUser, FiInfo, FiArrowUpRight, FiArrowDownLeft, FiClock, FiActivity } from "react-icons/fi";
+import Swal from "sweetalert2";
+import { getBCVRate } from "@/lib/currency";
+import { db, auth } from "@/lib/firebase";
+import { collection, addDoc, Timestamp } from "firebase/firestore";
+
+export default function DebtsPage() {
+    const { debts, loadingDebts, addDebt, deleteDebt, updateDebt, addPayment } = useDebts();
+    const [bcvRate, setBcvRate] = useState(0);
+    const [activeTab, setActiveTab] = useState<"por_cobrar" | "por_pagar">("por_cobrar");
+
+    useEffect(() => {
+        getBCVRate().then(setBcvRate);
+    }, []);
+
+    const filteredDebts = debts.filter(d => d.type === activeTab);
+
+    // Calculate totals
+    const totalReceivable = debts.filter(d => d.type === "por_cobrar").reduce((acc, d) => acc + (d.amount - d.payments.reduce((pAcc, p) => pAcc + p.amount, 0)), 0);
+    const totalPayable = debts.filter(d => d.type === "por_pagar").reduce((acc, d) => acc + (d.amount - d.payments.reduce((pAcc, p) => pAcc + p.amount, 0)), 0);
+
+    const handleAddDebt = async () => {
+        const { value: formValues } = await Swal.fire({
+            title: activeTab === "por_cobrar" ? 'Nueva Deuda a mi favor' : 'Nueva Deuda a pagar',
+            html:
+                '<div class="flex flex-col gap-3 text-left">' +
+                `<label class="text-xs text-slate-400 font-bold uppercase">${activeTab === "por_cobrar" ? 'Deudor (¿Quién me debe?)' : 'Acreedor (¿A quién le debo?)'}</label>` +
+                '<input id="swal-person" class="swal2-input m-0 w-full" placeholder="Nombre de la persona" style="background-color: #1e293b; color: white; border: 1px solid #475569;">' +
+
+                '<label class="text-xs text-slate-400 font-bold uppercase">Monto ($)</label>' +
+                '<input id="swal-amount" type="number" step="0.01" class="swal2-input m-0 w-full" placeholder="0.00" style="background-color: #1e293b; color: white; border: 1px solid #475569;">' +
+
+                '<label class="text-xs text-slate-400 font-bold uppercase">Fecha Límite (Opcional)</label>' +
+                '<input id="swal-date" type="date" class="swal2-input m-0 w-full" style="background-color: #1e293b; color: white; border: 1px solid #475569;">' +
+
+                '<label class="text-xs text-slate-400 font-bold uppercase mt-2">Nota / Descripción</label>' +
+                '<input id="swal-desc" class="swal2-input m-0 w-full" placeholder="Ej: Préstamo personal" style="background-color: #1e293b; color: white; border: 1px solid #475569;">' +
+                '</div>',
+            focusConfirm: false,
+            background: "#1f2937",
+            color: "#fff",
+            showCancelButton: true,
+            confirmButtonText: 'Guardar',
+            confirmButtonColor: '#10b981',
+            preConfirm: () => {
+                const person = (document.getElementById('swal-person') as HTMLInputElement).value;
+                const amount = (document.getElementById('swal-amount') as HTMLInputElement).value;
+                const date = (document.getElementById('swal-date') as HTMLInputElement).value;
+                const desc = (document.getElementById('swal-desc') as HTMLInputElement).value;
+
+                return [person, amount, date, desc];
+            }
+        });
+
+        if (formValues) {
+            const [person, amount, date, desc] = formValues;
+
+            if (!person || !amount) {
+                Swal.fire({ icon: 'error', title: 'Faltan datos', text: 'Nombre y monto son obligatorios.', background: "#1f2937", color: "#fff" });
+                return;
+            }
+
+            await addDebt({
+                personName: person,
+                amount: parseFloat(amount),
+                type: activeTab,
+                description: desc,
+                dueDate: date ? new Date(date) : undefined,
+            });
+
+            Swal.fire({
+                icon: "success",
+                title: "Registrado",
+                timer: 1500,
+                showConfirmButton: false,
+                background: "#1f2937",
+                color: "#fff",
+            });
+        }
+    };
+
+    const handleAddPayment = async (debt: Debt) => {
+        const totalPaid = debt.payments.reduce((a, b) => a + b.amount, 0);
+        const remaining = debt.amount - totalPaid;
+
+        const { value: formValues } = await Swal.fire({
+            title: 'Registrar Abono',
+            html:
+                `<div class="text-left mb-4 text-sm text-slate-400">Total deuda: $${debt.amount}<br>Restante: <span class="text-emerald-400 font-bold">$${remaining.toFixed(2)}</span></div>` +
+                '<div class="flex flex-col gap-3 text-left">' +
+                '<label class="text-xs text-slate-400 font-bold uppercase">Monto del Abono ($)</label>' +
+                `<input id="swal-payment-amount" type="number" step="0.01" max="${remaining}" class="swal2-input m-0 w-full" placeholder="0.00" style="background-color: #1e293b; color: white; border: 1px solid #475569;">` +
+
+                '<label class="text-xs text-slate-400 font-bold uppercase">Fecha del Pago</label>' +
+                `<input id="swal-payment-date" type="date" value="${new Date().toISOString().split('T')[0]}" class="swal2-input m-0 w-full" style="background-color: #1e293b; color: white; border: 1px solid #475569;">` +
+                '</div>',
+            focusConfirm: false,
+            background: "#1f2937",
+            color: "#fff",
+            showCancelButton: true,
+            confirmButtonText: 'Registrar Pago',
+            confirmButtonColor: '#10b981',
+            preConfirm: () => {
+                const amount = (document.getElementById('swal-payment-amount') as HTMLInputElement).value;
+                const date = (document.getElementById('swal-payment-date') as HTMLInputElement).value;
+                return [amount, date];
+            }
+        });
+
+        if (formValues) {
+            const [amountStr, dateStr] = formValues;
+            const amount = parseFloat(amountStr);
+
+            if (!amount || amount <= 0) {
+                Swal.fire({ icon: 'error', title: 'Monto inválido', background: "#1f2937", color: "#fff" });
+                return;
+            }
+            if (amount > remaining + 0.01) { // small epsilon for float precision
+                Swal.fire({ icon: 'error', title: 'El monto excede la deuda restante', background: "#1f2937", color: "#fff" });
+                return;
+            }
+
+            await addPayment(debt.id, {
+                amount: amount,
+                date: new Date(dateStr),
+            });
+
+            // Create Transaction Record
+            try {
+                if (auth.currentUser) {
+                    await addDoc(collection(db, "transactions"), {
+                        userId: auth.currentUser.uid,
+                        amount: amount,
+                        type: debt.type === 'por_cobrar' ? 'ingreso' : 'gasto',
+                        category: 'Deudas',
+                        description: `Abono: ${debt.personName} (${debt.description || 'Deuda'})`,
+                        date: Timestamp.fromDate(new Date(dateStr)),
+                        currency: "USD",
+                        originalAmount: amount,
+                        exchangeRate: bcvRate,
+                    });
+                }
+            } catch (error) {
+                console.error("Error creating transaction for debt payment:", error);
+                // We don't stop the flow here, as the debt update was successful, but we log it.
+            }
+
+            Swal.fire({
+                icon: "success",
+                title: "Abono registrado",
+                text: "Se ha actualizado la deuda y registrado el movimiento.",
+                timer: 2000,
+                showConfirmButton: false,
+                background: "#1f2937",
+                color: "#fff",
+            });
+        }
+    };
+
+    const handleDelete = async (id: string) => {
+        Swal.fire({
+            title: '¿Eliminar registro?',
+            text: "Se borrará todo el historial de pagos de esta deuda.",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#ef4444',
+            cancelButtonColor: '#374151',
+            confirmButtonText: 'Sí, borrar',
+            background: "#1f2937",
+            color: "#fff"
+        }).then(async (result) => {
+            if (result.isConfirmed) {
+                await deleteDebt(id);
+                Swal.fire({
+                    title: 'Borrado!',
+                    icon: 'success',
+                    background: "#1f2937",
+                    color: "#fff",
+                    timer: 1500,
+                    showConfirmButton: false
+                })
+            }
+        })
+    };
+
+    if (loadingDebts) {
+        return (
+            <div className="flex items-center justify-center min-h-[50vh]">
+                <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="space-y-8 pb-10">
+            {/* Header Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div
+                    className={`p-6 rounded-3xl border transition-all cursor-pointer relative overflow-hidden group ${activeTab === 'por_cobrar' ? 'bg-emerald-500/10 border-emerald-500/50 shadow-lg shadow-emerald-500/10' : 'bg-slate-900/50 border-slate-700/50 hover:border-emerald-500/30'}`}
+                    onClick={() => setActiveTab('por_cobrar')}
+                >
+                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                        <FiArrowUpRight className="text-8xl text-emerald-500" />
+                    </div>
+                    <div className="relative z-10">
+                        <p className={`text-sm font-bold uppercase tracking-wider mb-1 ${activeTab === 'por_cobrar' ? 'text-emerald-400' : 'text-slate-400'}`}>Por Cobrar</p>
+                        <h2 className="text-3xl font-bold text-white">${totalReceivable.toFixed(2)}</h2>
+                        <p className="text-xs text-slate-500 mt-1">Gente que te debe dinero</p>
+                    </div>
+                </div>
+
+                <div
+                    className={`p-6 rounded-3xl border transition-all cursor-pointer relative overflow-hidden group ${activeTab === 'por_pagar' ? 'bg-rose-500/10 border-rose-500/50 shadow-lg shadow-rose-500/10' : 'bg-slate-900/50 border-slate-700/50 hover:border-rose-500/30'}`}
+                    onClick={() => setActiveTab('por_pagar')}
+                >
+                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                        <FiArrowDownLeft className="text-8xl text-rose-500" />
+                    </div>
+                    <div className="relative z-10">
+                        <p className={`text-sm font-bold uppercase tracking-wider mb-1 ${activeTab === 'por_pagar' ? 'text-rose-400' : 'text-slate-400'}`}>Por Pagar</p>
+                        <h2 className="text-3xl font-bold text-white">${totalPayable.toFixed(2)}</h2>
+                        <p className="text-xs text-slate-500 mt-1">Dinero que debes</p>
+                    </div>
+                </div>
+            </div>
+
+            {/* Controls */}
+            <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+                <h1 className="text-2xl font-bold text-white">
+                    {activeTab === "por_cobrar" ? "Personas que me deben" : "Mis Deudas"}
+                </h1>
+                <button
+                    onClick={handleAddDebt}
+                    className="flex items-center gap-2 px-6 py-3 bg-white text-slate-900 rounded-xl font-bold hover:bg-slate-200 transition-colors shadow-lg shadow-white/5"
+                >
+                    <FiPlus /> Nuevo Registro
+                </button>
+            </div>
+
+            {/* List */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                {filteredDebts.length === 0 && (
+                    <div className="col-span-full py-12 text-center border border-dashed border-slate-700 rounded-3xl bg-slate-900/30">
+                        <div className="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <FiInfo className="text-2xl text-slate-500" />
+                        </div>
+                        <p className="text-slate-400">No hay registros en esta sección.</p>
+                    </div>
+                )}
+
+                {filteredDebts.map((debt) => {
+                    const totalPaid = debt.payments.reduce((a, b) => a + b.amount, 0);
+                    const remaining = debt.amount - totalPaid;
+                    const progress = (totalPaid / debt.amount) * 100;
+                    const isFullyPaid = remaining <= 0.01;
+
+                    return (
+                        <div key={debt.id} className="bg-slate-900/50 border border-slate-700/50 rounded-3xl p-6 relative group hover:border-slate-600 transition-all">
+                            {isFullyPaid && (
+                                <div className="absolute top-4 right-4">
+                                    <span className="bg-emerald-500/20 text-emerald-400 text-xs font-bold px-2 py-1 rounded-lg border border-emerald-500/30 flex items-center gap-1">
+                                        <FiCheckCircle /> PAGADO
+                                    </span>
+                                </div>
+                            )}
+
+                            <div className="flex items-start gap-4 mb-4">
+                                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl ${debt.type === 'por_cobrar' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>
+                                    <FiUser />
+                                </div>
+                                <div>
+                                    <h3 className="text-lg font-bold text-white">{debt.personName}</h3>
+                                    <p className="text-sm text-slate-500">{debt.description || "Sin descripción"}</p>
+                                </div>
+                            </div>
+
+                            {/* Amount Display */}
+                            <div className="mb-4 p-4 bg-slate-800/50 rounded-2xl border border-slate-700/30">
+                                <div className="flex justify-between items-end mb-1">
+                                    <span className="text-xs text-slate-400 uppercase font-bold">Total</span>
+                                    <span className="text-xl font-bold text-white">${debt.amount.toFixed(2)}</span>
+                                </div>
+                                <div className="flex justify-between items-end">
+                                    <span className="text-xs text-slate-400 uppercase font-bold">Restante</span>
+                                    <span className={`text-lg font-bold ${remaining > 0 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                                        ${remaining.toFixed(2)}
+                                    </span>
+                                </div>
+                                <div className="mt-2 text-right">
+                                    <span className="text-xs text-slate-500">
+                                        ≈ Bs. {(remaining * bcvRate).toLocaleString("es-VE", { maximumFractionDigits: 2 })}
+                                    </span>
+                                </div>
+                            </div>
+
+                            {/* Progress Bar */}
+                            <div className="mb-4">
+                                <div className="flex justify-between text-xs mb-1 text-slate-400">
+                                    <span>Progreso de pago</span>
+                                    <span>{progress.toFixed(0)}%</span>
+                                </div>
+                                <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
+                                    <div
+                                        className={`h-full rounded-full transition-all duration-500 ${isFullyPaid ? 'bg-emerald-500' : 'bg-amber-400'}`}
+                                        style={{ width: `${Math.min(progress, 100)}%` }}
+                                    ></div>
+                                </div>
+                            </div>
+
+                            {/* Payments History (Collapsible or just minimal info?) - Let's show last payment or count */}
+                            {debt.payments.length > 0 && (
+                                <div className="mb-4 text-xs text-slate-500 bg-slate-800/30 p-3 rounded-xl">
+                                    <p className="font-bold text-slate-400 mb-1">Historial del Pagos ({debt.payments.length}):</p>
+                                    <div className="space-y-1 max-h-20 overflow-y-auto custom-scrollbar">
+                                        {debt.payments.slice().reverse().map((pay, i) => (
+                                            <div key={i} className="flex justify-between">
+                                                <span>{new Date(pay.date).toLocaleDateString()}</span>
+                                                <span className="text-white">${pay.amount.toFixed(2)}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Actions */}
+                            <div className="flex gap-2 mt-auto">
+                                {!isFullyPaid && (
+                                    <button
+                                        onClick={() => handleAddPayment(debt)}
+                                        className="flex-1 py-2 bg-emerald-500 hover:bg-emerald-400 text-white rounded-xl font-bold text-sm transition-colors shadow-lg shadow-emerald-500/20"
+                                    >
+                                        Registrar Abono
+                                    </button>
+                                )}
+                                <button
+                                    onClick={() => handleDelete(debt.id)}
+                                    className="p-2 text-slate-500 hover:text-red-400 transition-colors bg-slate-800 hover:bg-slate-700 rounded-xl"
+                                >
+                                    <FiTrash2 />
+                                </button>
+                            </div>
+
+                            {/* Due Date Indicator */}
+                            {debt.dueDate && (
+                                <div className="mt-3 flex items-center gap-2 text-xs text-slate-500 justify-center">
+                                    <FiClock /> Vence: {new Date(debt.dueDate).toLocaleDateString()}
+                                </div>
+                            )}
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
+}
