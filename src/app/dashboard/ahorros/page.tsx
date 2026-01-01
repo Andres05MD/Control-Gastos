@@ -27,8 +27,10 @@ import {
     FiTrash2,
     FiArrowUpRight,
     FiArrowDownLeft,
-    FiBriefcase
+    FiBriefcase,
+    FiSearch
 } from "react-icons/fi";
+import PaginationControls from "@/components/ui/PaginationControls";
 import { SiTether } from "react-icons/si";
 import { getBCVRate } from "@/lib/currency";
 import GoalsSection from "@/components/savings/GoalsSection";
@@ -55,6 +57,10 @@ export default function SavingsPage() {
     const [description, setDescription] = useState("");
     const [method, setMethod] = useState<"physical" | "usdt">("physical");
     const [type, setType] = useState<"deposit" | "withdrawal">("deposit");
+
+    const [searchTerm, setSearchTerm] = useState("");
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 8;
 
     useEffect(() => {
         getBCVRate().then(setBcvRate);
@@ -244,6 +250,14 @@ export default function SavingsPage() {
 
     const totalBalance = balancePhysical + balanceUSDT;
 
+    const filteredTransactions = transactions.filter(t =>
+        t.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        t.amount.toString().includes(searchTerm)
+    );
+
+    const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage);
+    const paginatedTransactions = filteredTransactions.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
     return (
         <div className="space-y-8 pb-10">
             {/* Header */}
@@ -393,17 +407,34 @@ export default function SavingsPage() {
 
                 {/* History List */}
                 <div className="lg:col-span-2">
-                    <div className="bg-slate-900/50 backdrop-blur-md p-6 rounded-3xl border border-slate-700/50 shadow-lg">
-                        <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
-                            <FiCalendar className="text-blue-400" />
-                            Historial de Movimientos
-                        </h3>
+                    <div className="bg-slate-900/50 backdrop-blur-md p-6 rounded-3xl border border-slate-700/50 shadow-lg flex flex-col h-full">
+                        <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-6">
+                            <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                                <FiCalendar className="text-blue-400" />
+                                Historial de Movimientos
+                            </h3>
+                            <div className="relative w-full md:w-64">
+                                <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-500" />
+                                <input
+                                    type="text"
+                                    placeholder="Buscar..."
+                                    value={searchTerm}
+                                    onChange={(e) => {
+                                        setSearchTerm(e.target.value);
+                                        setCurrentPage(1);
+                                    }}
+                                    className="w-full bg-slate-800/50 border border-slate-700/50 rounded-xl py-2 pl-10 pr-4 text-white text-sm focus:outline-none focus:border-emerald-500/50 placeholder-slate-600 transition-all"
+                                />
+                            </div>
+                        </div>
 
-                        <div className="space-y-3">
-                            {transactions.length === 0 ? (
-                                <div className="text-center py-10 text-slate-500">No hay movimientos registrados.</div>
+                        <div className="space-y-3 flex-1 overflow-y-auto max-h-[600px] pr-2 custom-scrollbar">
+                            {paginatedTransactions.length === 0 ? (
+                                <div className="text-center py-10 text-slate-500">
+                                    {searchTerm ? "No se encontraron movimientos." : "No hay movimientos registrados."}
+                                </div>
                             ) : (
-                                transactions.map(t => (
+                                paginatedTransactions.map(t => (
                                     <div key={t.id} className="bg-slate-800/30 hover:bg-slate-800/50 border border-slate-700/30 rounded-2xl p-4 flex items-center justify-between transition-all group">
                                         <div className="flex items-center gap-4">
                                             <div className={`p-3 rounded-xl ${t.type === "deposit"
@@ -443,6 +474,14 @@ export default function SavingsPage() {
                                     </div>
                                 ))
                             )}
+                        </div>
+
+                        <div className="mt-4 pt-4 border-t border-slate-700/30">
+                            <PaginationControls
+                                currentPage={currentPage}
+                                totalPages={totalPages}
+                                onPageChange={setCurrentPage}
+                            />
                         </div>
                     </div>
                 </div>

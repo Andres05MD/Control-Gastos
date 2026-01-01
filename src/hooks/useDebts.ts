@@ -78,8 +78,13 @@ export function useDebts() {
     const addDebt = async (debt: Omit<Debt, "id" | "createdAt" | "payments" | "isPaid">) => {
         if (!auth.currentUser) return;
         try {
+            // Remove undefined fields to avoid Firestore errors
+            const cleanDebt = Object.fromEntries(
+                Object.entries(debt).filter(([_, v]) => v !== undefined)
+            );
+
             await addDoc(collection(db, "users", auth.currentUser.uid, "debts"), {
-                ...debt,
+                ...cleanDebt,
                 payments: [],
                 isPaid: false,
                 createdAt: new Date(),
@@ -106,7 +111,10 @@ export function useDebts() {
         if (!auth.currentUser) return;
         try {
             // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            const { id: _, createdAt, ...validUpdates } = updates;
+            const { id: _, createdAt, ...updatesToClean } = updates;
+            const validUpdates = Object.fromEntries(
+                Object.entries(updatesToClean).filter(([__, v]) => v !== undefined)
+            );
             await updateDoc(doc(db, "users", auth.currentUser.uid, "debts", id), validUpdates);
             return true;
         } catch (error) {
@@ -124,14 +132,18 @@ export function useDebts() {
             // Actually, `updateDoc` can act on fields. But to push to array and check total...
             // Let's rely on the `debts` state passed in, or fetch it.
             // Simpler: Just push the payment. The client can calculate isPaid, or we update isPaid here.
-            
+
             const debt = debts.find(d => d.id === debtId);
             if (!debt) throw new Error("Debt not found");
 
-            const newPayment = { ...payment, id: crypto.randomUUID() };
+            const cleanPayment = Object.fromEntries(
+                Object.entries(payment).filter(([__, v]) => v !== undefined)
+            );
+
+            const newPayment = { ...cleanPayment, id: crypto.randomUUID() } as Payment;
             const updatedPayments = [...debt.payments, newPayment];
-            
-            const totalPaid = updatedPayments.reduce((acc, curr) => acc + curr.amount, 0);
+
+            const totalPaid = updatedPayments.reduce((acc, curr) => acc + (curr.amount || 0), 0);
             const isPaid = totalPaid >= debt.amount;
 
             await updateDoc(debtRef, {

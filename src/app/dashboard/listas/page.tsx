@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useShoppingLists, ShoppingList, ShoppingItem } from "@/hooks/useShoppingLists";
 import { FiShoppingCart, FiPlus, FiTrash2, FiCheck, FiSquare, FiList, FiDollarSign, FiMinus, FiFilter, FiSearch } from "react-icons/fi";
+import PaginationControls from "@/components/ui/PaginationControls";
 import Swal from "sweetalert2";
 import { getBCVRate } from "@/lib/currency";
 
@@ -129,12 +130,6 @@ export default function ShoppingListsPage() {
                 case "za":
                     return b.name.localeCompare(a.name);
                 case "oldest":
-                    // Assuming createdAt is a timestamp object or date string that compares correctly
-                    // If it's a firebase timestamp, we might need .toMillis() or .seconds
-                    // For now, relying on the fact that lists comes sorted by Newest from firestore query.
-                    // But if we want to reverse it reliably we should probably parse.
-                    // Since default firestore query is desc createdAt (newest first).
-                    // We can just reverse the array for oldest, but sorting properly is safer.
                     return (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0);
                 case "newest":
                 default:
@@ -144,6 +139,22 @@ export default function ShoppingListsPage() {
 
         return result;
     }, [lists, filterText, sortBy]);
+
+    const [listPage, setListPage] = useState(1);
+    const listsPerPage = 5;
+
+    // ... (existing useMemo for filteredLists logic)
+    const paginatedLists = useMemo(() => {
+        const startIndex = (listPage - 1) * listsPerPage;
+        return filteredLists.slice(startIndex, startIndex + listsPerPage);
+    }, [filteredLists, listPage]);
+
+    const totalListPages = Math.ceil(filteredLists.length / listsPerPage);
+
+    // Reset page when filter/sort changes (Add useEffect)
+    useEffect(() => {
+        setListPage(1);
+    }, [filterText, sortBy]);
 
     if (loading) {
         return (
@@ -215,13 +226,13 @@ export default function ShoppingListsPage() {
                     </div>
 
                     <div className="space-y-3">
-                        {filteredLists.length === 0 ? (
+                        {paginatedLists.length === 0 ? (
                             <div className="bg-slate-900/50 backdrop-blur-md p-8 rounded-2xl border border-slate-700/50 text-center text-slate-500 flex flex-col items-center">
                                 <FiList size={32} className="mb-2 opacity-50" />
                                 {lists.length === 0 ? "No tienes listas creadas." : "No se encontraron listas."}
                             </div>
                         ) : (
-                            filteredLists.map((list) => (
+                            paginatedLists.map((list) => (
                                 <div
                                     key={list.id}
                                     onClick={() => setSelectedList(list)}
@@ -267,6 +278,14 @@ export default function ShoppingListsPage() {
                                 </div>
                             ))
                         )}
+
+                        <div className="pt-2">
+                            <PaginationControls
+                                currentPage={listPage}
+                                totalPages={totalListPages}
+                                onPageChange={setListPage}
+                            />
+                        </div>
                     </div>
                 </div>
 
@@ -440,9 +459,10 @@ export default function ShoppingListsPage() {
                             <p className="text-xl font-bold text-slate-400">Selecciona o crea una lista</p>
                             <p className="text-sm mt-2 max-w-xs text-center text-slate-600">Elige una lista del menú lateral para ver su contenido y gestionar tus compras.</p>
                         </div>
-                    )}
-                </div>
-            </div>
-        </div>
+                    )
+                    }
+                </div >
+            </div >
+        </div >
     );
 }

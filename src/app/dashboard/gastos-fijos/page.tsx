@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { useFixedExpenses, FixedExpense } from "@/hooks/useFixedExpenses";
-import { FiCalendar, FiPlus, FiTrash2, FiCheckCircle, FiDollarSign, FiEdit2, FiInfo, FiActivity } from "react-icons/fi";
+import { FiCalendar, FiPlus, FiTrash2, FiCheckCircle, FiDollarSign, FiEdit2, FiInfo, FiActivity, FiSearch } from "react-icons/fi";
+import PaginationControls from "@/components/ui/PaginationControls";
 import Swal from "sweetalert2";
 import { db, auth } from "@/lib/firebase";
 import { collection, addDoc, Timestamp } from "firebase/firestore";
@@ -239,6 +240,18 @@ export default function FixedExpensesPage() {
     const totalPaid = fixedExpenses.filter(e => isPaidCurrentMonth(e.lastPaidDate)).reduce((acc, curr) => acc + curr.amount, 0);
     const progress = totalMonthly > 0 ? (totalPaid / totalMonthly) * 100 : 0;
 
+    const [searchTerm, setSearchTerm] = useState("");
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 8;
+
+    const filteredExpenses = fixedExpenses.filter(e =>
+        e.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        e.category.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    const totalPages = Math.ceil(filteredExpenses.length / itemsPerPage);
+    const paginatedExpenses = filteredExpenses.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
     return (
         <div className="space-y-8 pb-10">
             {/* Header */}
@@ -277,23 +290,45 @@ export default function FixedExpensesPage() {
                 </div>
             </div>
 
-            {/* List */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* Add New Button Card (First Item) */}
-                <div className="lg:col-span-1">
-                    <button
-                        onClick={handleAddExpense}
-                        className="w-full h-full min-h-[120px] bg-gradient-to-br from-emerald-500/20 to-teal-500/20 hover:from-emerald-500/30 hover:to-teal-500/30 border border-emerald-500/30 hover:border-emerald-500/50 border-dashed rounded-3xl flex flex-col items-center justify-center gap-3 transition-all group p-6"
-                    >
-                        <div className="w-12 h-12 bg-emerald-500/20 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
-                            <FiPlus className="text-emerald-400 text-xl" />
-                        </div>
-                        <span className="text-emerald-400 font-bold group-hover:text-emerald-300">Nuevo Gasto Fijo</span>
-                    </button>
+            {/* Controls */}
+            <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-slate-900/40 p-4 rounded-2xl border border-slate-700/30">
+                <div className="relative w-full md:w-80">
+                    <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-500" />
+                    <input
+                        type="text"
+                        placeholder="Buscar gasto..."
+                        value={searchTerm}
+                        onChange={(e) => {
+                            setSearchTerm(e.target.value);
+                            setCurrentPage(1);
+                        }}
+                        className="w-full bg-slate-800/50 border border-slate-700/50 rounded-xl py-2 pl-10 pr-4 text-white text-sm focus:outline-none focus:border-emerald-500/50 placeholder-slate-600 transition-all"
+                    />
                 </div>
 
+                <button
+                    onClick={handleAddExpense}
+                    className="flex items-center gap-2 px-6 py-2 bg-white text-slate-900 rounded-xl font-bold hover:bg-slate-200 transition-colors shadow-lg shadow-white/5 w-full md:w-auto justify-center"
+                >
+                    <FiPlus /> Nuevo Gasto
+                </button>
+            </div>
+
+            {/* List */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {paginatedExpenses.length === 0 && (
+                    <div className="col-span-full py-12 text-center border border-dashed border-slate-700 rounded-3xl bg-slate-900/30">
+                        <div className="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <FiInfo className="text-2xl text-slate-500" />
+                        </div>
+                        <p className="text-slate-400">
+                            {searchTerm ? "No se encontraron gastos." : "No hay gastos fijos registrados."}
+                        </p>
+                    </div>
+                )}
+
                 {/* Expense Cards */}
-                {fixedExpenses.map((expense) => {
+                {paginatedExpenses.map((expense) => {
                     const isPaid = isPaidCurrentMonth(expense.lastPaidDate);
                     return (
                         <div
@@ -348,6 +383,12 @@ export default function FixedExpensesPage() {
                     );
                 })}
             </div>
+
+            <PaginationControls
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+            />
         </div>
     );
 }

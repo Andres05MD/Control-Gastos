@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { useDebts, Debt, Payment } from "@/hooks/useDebts";
-import { FiPlus, FiTrash2, FiCheckCircle, FiDollarSign, FiUser, FiInfo, FiArrowUpRight, FiArrowDownLeft, FiClock, FiActivity } from "react-icons/fi";
+import { FiPlus, FiTrash2, FiCheckCircle, FiDollarSign, FiUser, FiInfo, FiArrowUpRight, FiArrowDownLeft, FiClock, FiActivity, FiSearch } from "react-icons/fi";
+import PaginationControls from "@/components/ui/PaginationControls";
 import Swal from "sweetalert2";
 import { getBCVRate } from "@/lib/currency";
 import { db, auth } from "@/lib/firebase";
@@ -12,14 +13,32 @@ export default function DebtsPage() {
     const { debts, loadingDebts, addDebt, deleteDebt, updateDebt, addPayment } = useDebts();
     const [bcvRate, setBcvRate] = useState(0);
     const [activeTab, setActiveTab] = useState<"por_cobrar" | "por_pagar">("por_cobrar");
+    const [searchTerm, setSearchTerm] = useState("");
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 6;
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [activeTab, searchTerm]);
 
     useEffect(() => {
         getBCVRate().then(setBcvRate);
     }, []);
 
-    const filteredDebts = debts.filter(d => d.type === activeTab);
+    const filteredDebts = debts.filter(d => {
+        const matchesType = d.type === activeTab;
+        const matchesSearch = d.personName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (d.description && d.description.toLowerCase().includes(searchTerm.toLowerCase()));
+        return matchesType && matchesSearch;
+    });
 
-    // Calculate totals
+    // Pagination
+    const totalPages = Math.ceil(filteredDebts.length / itemsPerPage);
+    const paginatedDebts = filteredDebts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+
+    // Calculate totals (should align with search or raw? Usually totals at top align with TAB, regardless of search? 
+    // The user code previously calculated totals based on 'debts.filter(type)'. Let's keep totals global for the tab, not affected by search.)
     const totalReceivable = debts.filter(d => d.type === "por_cobrar").reduce((acc, d) => acc + (d.amount - d.payments.reduce((pAcc, p) => pAcc + p.amount, 0)), 0);
     const totalPayable = debts.filter(d => d.type === "por_pagar").reduce((acc, d) => acc + (d.amount - d.payments.reduce((pAcc, p) => pAcc + p.amount, 0)), 0);
 
@@ -229,13 +248,24 @@ export default function DebtsPage() {
             </div>
 
             {/* Controls */}
-            <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-                <h1 className="text-2xl font-bold text-white">
-                    {activeTab === "por_cobrar" ? "Personas que me deben" : "Mis Deudas"}
-                </h1>
+            <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-slate-900/40 p-4 rounded-2xl border border-slate-700/30">
+                <div className="relative w-full md:w-80">
+                    <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-500" />
+                    <input
+                        type="text"
+                        placeholder={activeTab === "por_cobrar" ? "Buscar deudor..." : "Buscar acreedor..."}
+                        value={searchTerm}
+                        onChange={(e) => {
+                            setSearchTerm(e.target.value);
+                            setCurrentPage(1);
+                        }}
+                        className="w-full bg-slate-800/50 border border-slate-700/50 rounded-xl py-2 pl-10 pr-4 text-white text-sm focus:outline-none focus:border-emerald-500/50 placeholder-slate-600 transition-all"
+                    />
+                </div>
+
                 <button
                     onClick={handleAddDebt}
-                    className="flex items-center gap-2 px-6 py-3 bg-white text-slate-900 rounded-xl font-bold hover:bg-slate-200 transition-colors shadow-lg shadow-white/5"
+                    className="flex items-center gap-2 px-6 py-2 bg-white text-slate-900 rounded-xl font-bold hover:bg-slate-200 transition-colors shadow-lg shadow-white/5 w-full md:w-auto justify-center"
                 >
                     <FiPlus /> Nuevo Registro
                 </button>
@@ -243,16 +273,18 @@ export default function DebtsPage() {
 
             {/* List */}
             <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-                {filteredDebts.length === 0 && (
+                {paginatedDebts.length === 0 && (
                     <div className="col-span-full py-12 text-center border border-dashed border-slate-700 rounded-3xl bg-slate-900/30">
                         <div className="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4">
                             <FiInfo className="text-2xl text-slate-500" />
                         </div>
-                        <p className="text-slate-400">No hay registros en esta sección.</p>
+                        <p className="text-slate-400">
+                            {searchTerm ? "No se encontraron resultados." : "No hay registros en esta sección."}
+                        </p>
                     </div>
                 )}
 
-                {filteredDebts.map((debt) => {
+                {paginatedDebts.map((debt) => {
                     const totalPaid = debt.payments.reduce((a, b) => a + b.amount, 0);
                     const remaining = debt.amount - totalPaid;
                     const progress = (totalPaid / debt.amount) * 100;
@@ -354,6 +386,12 @@ export default function DebtsPage() {
                     );
                 })}
             </div>
+
+            <PaginationControls
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+            />
         </div>
     );
 }
