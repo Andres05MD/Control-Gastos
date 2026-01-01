@@ -12,6 +12,9 @@ import { getBCVRate } from "@/lib/currency";
 export default function FixedExpensesPage() {
     const { fixedExpenses, loadingFixedExpenses, addFixedExpense, deleteFixedExpense, updateFixedExpense } = useFixedExpenses();
     const [bcvRate, setBcvRate] = useState(0);
+    const [searchTerm, setSearchTerm] = useState("");
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 8;
 
     useEffect(() => {
         getBCVRate().then(setBcvRate);
@@ -228,21 +231,12 @@ export default function FixedExpensesPage() {
         return paidDate.getMonth() === now.getMonth() && paidDate.getFullYear() === now.getFullYear();
     };
 
-    if (loadingFixedExpenses) {
-        return (
-            <div className="flex items-center justify-center min-h-[50vh]">
-                <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
-            </div>
-        );
-    }
+    // Calculate derived values but don't render until we are sure we are not loading.
+    // Actually, we can just calculate them; they will be empty if fixedExpenses is empty.
 
     const totalMonthly = fixedExpenses.reduce((acc, curr) => acc + curr.amount, 0);
     const totalPaid = fixedExpenses.filter(e => isPaidCurrentMonth(e.lastPaidDate)).reduce((acc, curr) => acc + curr.amount, 0);
     const progress = totalMonthly > 0 ? (totalPaid / totalMonthly) * 100 : 0;
-
-    const [searchTerm, setSearchTerm] = useState("");
-    const [currentPage, setCurrentPage] = useState(1);
-    const itemsPerPage = 8;
 
     const filteredExpenses = fixedExpenses.filter(e =>
         e.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -251,6 +245,14 @@ export default function FixedExpensesPage() {
 
     const totalPages = Math.ceil(filteredExpenses.length / itemsPerPage);
     const paginatedExpenses = filteredExpenses.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+    if (loadingFixedExpenses) {
+        return (
+            <div className="flex items-center justify-center min-h-[50vh]">
+                <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-8 pb-10">

@@ -45,33 +45,118 @@ export default function DebtsPage() {
     const handleAddDebt = async () => {
         const { value: formValues } = await Swal.fire({
             title: activeTab === "por_cobrar" ? 'Nueva Deuda a mi favor' : 'Nueva Deuda a pagar',
-            html:
-                '<div class="flex flex-col gap-3 text-left">' +
-                `<label class="text-xs text-slate-400 font-bold uppercase">${activeTab === "por_cobrar" ? 'Deudor (¿Quién me debe?)' : 'Acreedor (¿A quién le debo?)'}</label>` +
-                '<input id="swal-person" class="swal2-input m-0 w-full" placeholder="Nombre de la persona" style="background-color: #1e293b; color: white; border: 1px solid #475569;">' +
+            html: `
+                <div class="flex flex-col gap-4 text-left">
+                    <div>
+                        <label class="text-xs text-slate-400 font-bold uppercase block mb-1">
+                            ${activeTab === "por_cobrar" ? 'Deudor (¿Quién me debe?)' : 'Acreedor (¿A quién le debo?)'}
+                        </label>
+                        <input id="swal-person" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2 text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none transition-colors" placeholder="Nombre de la persona">
+                    </div>
 
-                '<label class="text-xs text-slate-400 font-bold uppercase">Monto ($)</label>' +
-                '<input id="swal-amount" type="number" step="0.01" class="swal2-input m-0 w-full" placeholder="0.00" style="background-color: #1e293b; color: white; border: 1px solid #475569;">' +
+                    <div>
+                        <label class="text-xs text-slate-400 font-bold uppercase block mb-1">Monto</label>
+                        <div class="flex items-center gap-2 bg-slate-800 border border-slate-700 rounded-xl p-1.5 focus-within:border-emerald-500 transition-colors">
+                            <input id="swal-amount" type="number" step="0.01" class="w-full bg-transparent border-none text-white text-lg px-2 focus:ring-0 focus:outline-none placeholder-slate-600" placeholder="0.00">
+                            <div class="flex bg-slate-700/50 rounded-lg p-1 shrink-0 gap-1">
+                                <button type="button" id="btn-usd" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-500 text-white shadow-lg transition-all">USD</button>
+                                <button type="button" id="btn-bs" class="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-600 transition-all">Bs</button>
+                            </div>
+                        </div>
+                        <div id="conversion-text" class="text-right text-xs text-slate-500 mt-2 font-mono">≈ Bs. 0.00</div>
+                    </div>
 
-                '<label class="text-xs text-slate-400 font-bold uppercase">Fecha Límite (Opcional)</label>' +
-                '<input id="swal-date" type="date" class="swal2-input m-0 w-full" style="background-color: #1e293b; color: white; border: 1px solid #475569;">' +
+                    <div>
+                        <label class="text-xs text-slate-400 font-bold uppercase block mb-1">Fecha Límite (Opcional)</label>
+                        <input id="swal-date" type="date" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2 text-white focus:border-emerald-500 focus:outline-none transition-colors">
+                    </div>
 
-                '<label class="text-xs text-slate-400 font-bold uppercase mt-2">Nota / Descripción</label>' +
-                '<input id="swal-desc" class="swal2-input m-0 w-full" placeholder="Ej: Préstamo personal" style="background-color: #1e293b; color: white; border: 1px solid #475569;">' +
-                '</div>',
+                    <div>
+                        <label class="text-xs text-slate-400 font-bold uppercase block mb-1">Nota / Descripción</label>
+                        <input id="swal-desc" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2 text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none transition-colors" placeholder="Ej: Préstamo personal">
+                    </div>
+                </div>
+            `,
             focusConfirm: false,
             background: "#1f2937",
             color: "#fff",
             showCancelButton: true,
             confirmButtonText: 'Guardar',
             confirmButtonColor: '#10b981',
+            cancelButtonText: 'Cancelar',
+            cancelButtonColor: '#374151',
+            customClass: {
+                popup: 'rounded-3xl border border-slate-700 shadow-2xl',
+                input: 'text-white'
+            },
+            didOpen: () => {
+                const inputAmount = document.getElementById('swal-amount') as HTMLInputElement;
+                const btnUsd = document.getElementById('btn-usd') as HTMLButtonElement;
+                const btnBs = document.getElementById('btn-bs') as HTMLButtonElement;
+                const conversionText = document.getElementById('conversion-text') as HTMLDivElement;
+
+                let isUsd = true;
+
+                const updateConversion = () => {
+                    const val = parseFloat(inputAmount.value);
+                    if (isNaN(val) || bcvRate <= 0) {
+                        conversionText.innerText = '≈ 0.00';
+                        return;
+                    }
+
+                    if (isUsd) {
+                        const bsVal = val * bcvRate;
+                        conversionText.innerText = `≈ Bs. ${bsVal.toLocaleString("es-VE", { maximumFractionDigits: 2 })}`;
+                    } else {
+                        const usdVal = val / bcvRate;
+                        conversionText.innerText = `≈ $${usdVal.toFixed(2)}`;
+                    }
+                };
+
+                const setMode = (mode: 'USD' | 'Bs') => {
+                    if (mode === 'USD') {
+                        isUsd = true;
+                        btnUsd.className = "px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-500 text-white shadow-lg transition-all";
+                        btnBs.className = "px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-600 transition-all";
+
+                        // Convert currently displayed value from Bs to USD
+                        const currentVal = parseFloat(inputAmount.value);
+                        if (!isNaN(currentVal) && bcvRate > 0) {
+                            inputAmount.value = (currentVal / bcvRate).toFixed(2);
+                        }
+                    } else {
+                        isUsd = false;
+                        btnBs.className = "px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-500 text-white shadow-lg transition-all";
+                        btnUsd.className = "px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-600 transition-all";
+
+                        // Convert currently displayed value from USD to Bs
+                        const currentVal = parseFloat(inputAmount.value);
+                        if (!isNaN(currentVal) && bcvRate > 0) {
+                            inputAmount.value = (currentVal * bcvRate).toFixed(2);
+                        }
+                    }
+                    updateConversion();
+                };
+
+                btnUsd.addEventListener('click', () => setMode('USD'));
+                btnBs.addEventListener('click', () => setMode('Bs'));
+                inputAmount.addEventListener('input', updateConversion);
+            },
             preConfirm: () => {
                 const person = (document.getElementById('swal-person') as HTMLInputElement).value;
-                const amount = (document.getElementById('swal-amount') as HTMLInputElement).value;
+                const amountVal = parseFloat((document.getElementById('swal-amount') as HTMLInputElement).value);
                 const date = (document.getElementById('swal-date') as HTMLInputElement).value;
                 const desc = (document.getElementById('swal-desc') as HTMLInputElement).value;
+                const btnUsd = document.getElementById('btn-usd') as HTMLButtonElement;
 
-                return [person, amount, date, desc];
+                const isUsd = btnUsd.classList.contains('bg-emerald-500');
+
+                let finalAmount = amountVal;
+                if (!isUsd && bcvRate > 0) {
+                    finalAmount = amountVal / bcvRate;
+                }
+
+                return [person, finalAmount, date, desc];
             }
         });
 
@@ -83,18 +168,43 @@ export default function DebtsPage() {
                 return;
             }
 
+            const debtAmount = parseFloat(amount);
+
             await addDebt({
                 personName: person,
-                amount: parseFloat(amount),
+                amount: debtAmount,
                 type: activeTab,
                 description: desc,
                 dueDate: date ? new Date(date) : undefined,
             });
 
+            // Create Transaction Record automatically
+            try {
+                if (auth.currentUser) {
+                    await addDoc(collection(db, "transactions"), {
+                        userId: auth.currentUser.uid,
+                        amount: debtAmount,
+                        // Cash Flow Logic:
+                        // Por Cobrar (I lend money) -> Money LEAVES -> expense (gasto)
+                        // Por Pagar (I borrow money) -> Money ENTERS -> income (ingreso)
+                        type: activeTab === 'por_cobrar' ? 'gasto' : 'ingreso',
+                        category: 'Deudas',
+                        description: `Registro Deuda: ${person} (${desc || 'Nueva deuda'})`,
+                        date: Timestamp.fromDate(date ? new Date(date) : new Date()),
+                        currency: "USD",
+                        originalAmount: debtAmount,
+                        exchangeRate: bcvRate,
+                    });
+                }
+            } catch (error) {
+                console.error("Error creating transaction for new debt:", error);
+            }
+
             Swal.fire({
                 icon: "success",
                 title: "Registrado",
-                timer: 1500,
+                text: "Se ha creado la deuda y el movimiento correspondiente.",
+                timer: 2000,
                 showConfirmButton: false,
                 background: "#1f2937",
                 color: "#fff",
@@ -108,25 +218,136 @@ export default function DebtsPage() {
 
         const { value: formValues } = await Swal.fire({
             title: 'Registrar Abono',
-            html:
-                `<div class="text-left mb-4 text-sm text-slate-400">Total deuda: $${debt.amount}<br>Restante: <span class="text-emerald-400 font-bold">$${remaining.toFixed(2)}</span></div>` +
-                '<div class="flex flex-col gap-3 text-left">' +
-                '<label class="text-xs text-slate-400 font-bold uppercase">Monto del Abono ($)</label>' +
-                `<input id="swal-payment-amount" type="number" step="0.01" max="${remaining}" class="swal2-input m-0 w-full" placeholder="0.00" style="background-color: #1e293b; color: white; border: 1px solid #475569;">` +
+            html: `
+                <div class="text-left mb-4 text-sm text-slate-400 bg-slate-800/50 p-4 rounded-xl border border-slate-700">
+                    <div class="flex justify-between items-center mb-1">
+                        <span>Total deuda:</span>
+                        <span class="text-white font-bold">$${debt.amount.toFixed(2)}</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span>Restante:</span>
+                        <div>
+                            <span class="text-emerald-400 font-bold text-lg">$${remaining.toFixed(2)}</span>
+                            <span class="text-xs text-slate-500 ml-1">(${remaining * bcvRate > 0 ? '≈ Bs. ' + (remaining * bcvRate).toLocaleString("es-VE", { maximumFractionDigits: 2 }) : ''})</span>
+                        </div>
+                    </div>
+                </div>
 
-                '<label class="text-xs text-slate-400 font-bold uppercase">Fecha del Pago</label>' +
-                `<input id="swal-payment-date" type="date" value="${new Date().toISOString().split('T')[0]}" class="swal2-input m-0 w-full" style="background-color: #1e293b; color: white; border: 1px solid #475569;">` +
-                '</div>',
+                <div class="flex flex-col gap-4 text-left">
+                     <div>
+                        <label class="text-xs text-slate-400 font-bold uppercase block mb-1">Monto del Abono</label>
+                        <div class="flex items-center gap-2 bg-slate-800 border border-slate-700 rounded-xl p-1.5 focus-within:border-emerald-500 transition-colors">
+                             <input id="swal-payment-amount" type="number" step="0.01" max="${remaining}" class="w-full bg-transparent border-none text-white text-lg px-2 focus:ring-0 focus:outline-none placeholder-slate-600" placeholder="0.00">
+                            <div class="flex bg-slate-700/50 rounded-lg p-1 shrink-0 gap-1">
+                                <button type="button" id="btn-pay-usd" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-500 text-white shadow-lg transition-all">USD</button>
+                                <button type="button" id="btn-pay-bs" class="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-600 transition-all">Bs</button>
+                            </div>
+                        </div>
+                        <div id="payment-conversion-text" class="text-right text-xs text-slate-500 mt-2 font-mono">≈ Bs. 0.00</div>
+                    </div>
+
+                    <div>
+                        <label class="text-xs text-slate-400 font-bold uppercase block mb-1">Fecha del Pago</label>
+                        <input id="swal-payment-date" type="date" value="${new Date().toISOString().split('T')[0]}" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2 text-white focus:border-emerald-500 focus:outline-none transition-colors">
+                    </div>
+
+                    <div class="mt-2 border-t border-slate-700 pt-4">
+                        <p class="text-xs font-bold text-slate-400 mb-2 uppercase">Últimos Pagos</p>
+                        <div class="space-y-2">
+                        ${debt.payments.length > 0 ?
+                    debt.payments.slice(-3).reverse().map(p =>
+                        `<div class="flex justify-between items-center bg-slate-800/30 p-2 rounded-lg text-xs text-slate-300">
+                                    <div class="flex items-center gap-2">
+                                        <div class="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
+                                        <span>${new Date(p.date).toLocaleDateString()}</span>
+                                    </div>
+                                    <span class="font-bold text-white">$${p.amount.toFixed(2)}</span>
+                                 </div>`
+                    ).join('')
+                    : '<p class="text-xs text-slate-500 italic text-center py-2">No hay pagos registrados</p>'
+                }
+                        </div>
+                    </div>
+                </div>
+            `,
             focusConfirm: false,
             background: "#1f2937",
             color: "#fff",
             showCancelButton: true,
             confirmButtonText: 'Registrar Pago',
             confirmButtonColor: '#10b981',
+            cancelButtonText: 'Cancelar',
+            cancelButtonColor: '#374151',
+            customClass: {
+                popup: 'rounded-3xl border border-slate-700 shadow-2xl',
+                input: 'text-white'
+            },
+            didOpen: () => {
+                const inputAmount = document.getElementById('swal-payment-amount') as HTMLInputElement;
+                const btnUsd = document.getElementById('btn-pay-usd') as HTMLButtonElement;
+                const btnBs = document.getElementById('btn-pay-bs') as HTMLButtonElement;
+                const conversionText = document.getElementById('payment-conversion-text') as HTMLDivElement;
+
+                let isUsd = true;
+
+                const updateConversion = () => {
+                    const val = parseFloat(inputAmount.value);
+                    if (isNaN(val) || bcvRate <= 0) {
+                        conversionText.innerText = '≈ 0.00';
+                        return;
+                    }
+
+                    if (isUsd) {
+                        const bsVal = val * bcvRate;
+                        conversionText.innerText = `≈ Bs. ${bsVal.toLocaleString("es-VE", { maximumFractionDigits: 2 })}`;
+                    } else {
+                        const usdVal = val / bcvRate;
+                        conversionText.innerText = `≈ $${usdVal.toFixed(2)}`;
+                    }
+                };
+
+                const setMode = (mode: 'USD' | 'Bs') => {
+                    if (mode === 'USD') {
+                        isUsd = true;
+                        btnUsd.className = "px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-500 text-white shadow-lg transition-all";
+                        btnBs.className = "px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-600 transition-all";
+
+                        // Convert value in input from BS to USD
+                        const currentVal = parseFloat(inputAmount.value);
+                        if (!isNaN(currentVal) && bcvRate > 0) {
+                            inputAmount.value = (currentVal / bcvRate).toFixed(2);
+                        }
+                    } else {
+                        isUsd = false;
+                        btnBs.className = "px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-500 text-white shadow-lg transition-all";
+                        btnUsd.className = "px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-600 transition-all";
+
+                        // Convert value in input from USD to BS
+                        const currentVal = parseFloat(inputAmount.value);
+                        if (!isNaN(currentVal) && bcvRate > 0) {
+                            inputAmount.value = (currentVal * bcvRate).toFixed(2);
+                        }
+                    }
+                    updateConversion();
+                };
+
+                btnUsd.addEventListener('click', () => setMode('USD'));
+                btnBs.addEventListener('click', () => setMode('Bs'));
+                inputAmount.addEventListener('input', updateConversion);
+            },
             preConfirm: () => {
-                const amount = (document.getElementById('swal-payment-amount') as HTMLInputElement).value;
+                const amountVal = parseFloat((document.getElementById('swal-payment-amount') as HTMLInputElement).value);
                 const date = (document.getElementById('swal-payment-date') as HTMLInputElement).value;
-                return [amount, date];
+                const btnUsd = document.getElementById('btn-pay-usd') as HTMLButtonElement;
+
+                const isUsd = btnUsd.classList.contains('bg-emerald-500');
+
+                let finalAmount = amountVal;
+                if (!isUsd && bcvRate > 0) {
+                    finalAmount = amountVal / bcvRate;
+                }
+
+                return [finalAmount.toString(), date];
             }
         });
 
