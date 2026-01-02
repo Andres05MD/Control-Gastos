@@ -2,13 +2,13 @@
 
 import { useState } from "react";
 import { useTransactions } from "@/hooks/useTransactions";
-import { FiTrendingUp, FiTrendingDown, FiTrash2, FiClock, FiEdit2, FiSearch } from "react-icons/fi";
+import { FiTrendingUp, FiTrendingDown, FiTrash2, FiClock, FiEdit2, FiSearch, FiCopy } from "react-icons/fi";
 import Swal from "sweetalert2";
 import { useEditTransaction } from "@/contexts/EditTransactionContext";
 import PaginationControls from "./PaginationControls";
 
 export default function RecentTransactions() {
-    const { transactions, loading, deleteTransaction } = useTransactions();
+    const { transactions, loading, deleteTransaction, duplicateTransaction } = useTransactions();
     const { startEditing } = useEditTransaction();
 
     const [currentPage, setCurrentPage] = useState(1);
@@ -141,6 +141,34 @@ export default function RecentTransactions() {
                                                 title="Editar"
                                             >
                                                 <FiEdit2 />
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    Swal.fire({
+                                                        title: "¿Duplicar movimiento?",
+                                                        text: `Se creará una copia de "${t.description}" con fecha de hoy.`,
+                                                        icon: "question",
+                                                        showCancelButton: true,
+                                                        confirmButtonText: "Sí, duplicar",
+                                                        cancelButtonText: "Cancelar",
+                                                        background: "#1f2937",
+                                                        color: "#fff",
+                                                    }).then(async (res) => {
+                                                        if (res.isConfirmed) {
+                                                            const success = await duplicateTransaction(t.id);
+                                                            if (success) {
+                                                                Swal.fire({
+                                                                    icon: "success", title: "Duplicado", text: "Movimiento registrado hoy.",
+                                                                    timer: 1500, showConfirmButton: false, background: "#1f2937", color: "#fff"
+                                                                });
+                                                            }
+                                                        }
+                                                    });
+                                                }}
+                                                className="text-slate-500 hover:text-emerald-400 transition-colors p-2 hover:bg-emerald-500/10 rounded-lg"
+                                                title="Duplicar hoy"
+                                            >
+                                                <FiCopy />
                                             </button>
                                             <button
                                                 onClick={() => handleDelete(t.id)}

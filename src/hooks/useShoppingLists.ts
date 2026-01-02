@@ -143,5 +143,25 @@ export const useShoppingLists = () => {
         await updateDoc(listRef, { name: newName });
     };
 
-    return { lists, loading, createList, deleteList, addItem, toggleItem, updateItemProgress, deleteItem, updateListName };
+    const duplicateList = async (listId: string) => {
+        if (!auth.currentUser) return;
+        const sourceList = lists.find(l => l.id === listId);
+        if (!sourceList) return;
+
+        const newItems = sourceList.items.map(item => ({
+            ...item,
+            id: crypto.randomUUID(), // New ID for the new item
+            completed: false,
+            purchasedQuantity: 0
+        }));
+
+        await addDoc(collection(db, "shopping_lists"), {
+            userId: auth.currentUser.uid,
+            name: `Copia de ${sourceList.name}`,
+            items: newItems,
+            createdAt: serverTimestamp()
+        });
+    };
+
+    return { lists, loading, createList, deleteList, addItem, toggleItem, updateItemProgress, deleteItem, updateListName, duplicateList };
 };

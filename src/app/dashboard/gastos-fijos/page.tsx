@@ -137,27 +137,35 @@ export default function FixedExpensesPage() {
             if (!result.isConfirmed) return;
         }
 
-        const { value: confirm } = await Swal.fire({
+        const result = await Swal.fire({
             title: `Pagar ${expense.title}`,
             html: `
                 <div class="text-left">
-                    <p class="mb-4 text-slate-300">Vas a registrar un gasto de <strong class="text-emerald-400">$${expense.amount}</strong>.</p>
-                    <p class="text-sm text-slate-400">Esto creará una transacción en tu historial y marcará este gasto como pagado por este mes.</p>
+                    <p class="mb-4 text-slate-300">Vas a registrar el pago de <strong class="text-emerald-400">$${expense.amount}</strong>.</p>
+                    <p class="text-sm text-slate-400">Elige cómo quieres procesarlo:</p>
                 </div>
             `,
             icon: 'info',
             showCancelButton: true,
-            confirmButtonText: 'Confirmar Pago',
+            showDenyButton: true,
+            confirmButtonText: 'Registrar Gasto y Pagar',
+            denyButtonText: 'Solo marcar como Pagado',
+            cancelButtonText: 'Cancelar',
             confirmButtonColor: '#10b981',
+            denyButtonColor: '#3b82f6',
+            cancelButtonColor: '#64748b',
             background: "#1f2937",
             color: "#fff",
+            width: '600px'
         });
 
-        if (confirm) {
-            try {
-                if (!auth.currentUser) return;
+        if (result.isDismissed) return;
 
-                // 1. Create Transaction
+        try {
+            if (!auth.currentUser) return;
+
+            // Option 1: Create transaction AND update status (Confirmed)
+            if (result.isConfirmed) {
                 await addDoc(collection(db, "transactions"), {
                     userId: auth.currentUser.uid,
                     amount: expense.amount,
@@ -170,30 +178,42 @@ export default function FixedExpensesPage() {
                     exchangeRate: bcvRate,
                 });
 
-                // 2. Update Fixed Expense
-                await updateFixedExpense(expense.id, {
-                    lastPaidDate: new Date()
-                });
-
                 Swal.fire({
                     icon: "success",
-                    title: "Pago registrado",
-                    timer: 1500,
+                    title: "Pago y Gasto registrados",
+                    text: "Se ha descontado de tu saldo.",
+                    timer: 2000,
                     showConfirmButton: false,
                     background: "#1f2937",
                     color: "#fff",
                 });
-
-            } catch (error) {
-                console.error(error);
+            } else if (result.isDenied) {
+                // Option 2: Only update status (Denied but not specialized cancel)
                 Swal.fire({
-                    icon: "error",
-                    title: "Error",
-                    text: "No se pudo registrar el pago",
+                    icon: "success",
+                    title: "Marcado como Pagado",
+                    text: "No se generó transacción de gasto.",
+                    timer: 2000,
+                    showConfirmButton: false,
                     background: "#1f2937",
                     color: "#fff",
                 });
             }
+
+            // Common action: Update Fixed Expense Last Paid Date
+            await updateFixedExpense(expense.id, {
+                lastPaidDate: new Date()
+            });
+
+        } catch (error) {
+            console.error(error);
+            Swal.fire({
+                icon: "error",
+                title: "Error",
+                text: "No se pudo actualizar el estado.",
+                background: "#1f2937",
+                color: "#fff",
+            });
         }
     };
 

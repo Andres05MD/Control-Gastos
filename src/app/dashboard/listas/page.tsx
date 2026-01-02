@@ -2,13 +2,13 @@
 
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useShoppingLists, ShoppingList, ShoppingItem } from "@/hooks/useShoppingLists";
-import { FiShoppingCart, FiPlus, FiTrash2, FiCheck, FiSquare, FiList, FiDollarSign, FiMinus, FiFilter, FiSearch, FiEdit2 } from "react-icons/fi";
+import { FiShoppingCart, FiPlus, FiTrash2, FiCheck, FiSquare, FiList, FiDollarSign, FiMinus, FiFilter, FiSearch, FiEdit2, FiCopy } from "react-icons/fi";
 import PaginationControls from "@/components/ui/PaginationControls";
 import Swal from "sweetalert2";
 import { getBCVRate } from "@/lib/currency";
 
 export default function ShoppingListsPage() {
-    const { lists, loading, createList, deleteList, addItem, toggleItem, deleteItem, updateItemProgress, updateListName } = useShoppingLists();
+    const { lists, loading, createList, deleteList, addItem, toggleItem, deleteItem, updateItemProgress, updateListName, duplicateList } = useShoppingLists();
     const [selectedList, setSelectedList] = useState<ShoppingList | null>(null);
     const [bcvRate, setBcvRate] = useState(0);
     const [filterText, setFilterText] = useState("");
@@ -284,28 +284,62 @@ export default function ShoppingListsPage() {
                                             {list.items?.length || 0} items
                                         </p>
                                     </div>
-                                    <button
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            Swal.fire({
-                                                title: '¿Borrar lista?',
-                                                text: "Se perderán todos los items.",
-                                                icon: 'warning',
-                                                showCancelButton: true,
-                                                confirmButtonColor: '#ef4444',
-                                                background: "#1f2937",
-                                                color: "#fff"
-                                            }).then((res) => {
-                                                if (res.isConfirmed) {
-                                                    if (selectedList?.id === list.id) setSelectedList(null);
-                                                    deleteList(list.id);
-                                                }
-                                            })
-                                        }}
-                                        className="text-slate-600 hover:text-red-400 md:opacity-0 md:group-hover:opacity-100 transition-all transform hover:scale-110 p-2"
-                                    >
-                                        <FiTrash2 size={20} />
-                                    </button>
+                                    <div className="flex gap-1 justify-end opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                Swal.fire({
+                                                    title: '¿Duplicar lista?',
+                                                    text: "Se creará una copia con los items reseteados.",
+                                                    icon: 'question',
+                                                    showCancelButton: true,
+                                                    confirmButtonColor: '#10b981',
+                                                    background: "#1f2937",
+                                                    color: "#fff",
+                                                    confirmButtonText: 'Sí, duplicar'
+                                                }).then(async (res) => {
+                                                    if (res.isConfirmed) {
+                                                        await duplicateList(list.id);
+                                                        Swal.fire({
+                                                            title: 'Lista duplicada',
+                                                            icon: 'success',
+                                                            timer: 1000,
+                                                            showConfirmButton: false,
+                                                            background: "#1f2937",
+                                                            color: "#fff"
+                                                        });
+                                                    }
+                                                })
+                                            }}
+                                            className="p-2 text-slate-500 hover:text-blue-400 hover:bg-slate-700/50 rounded-lg transition-all"
+                                            title="Duplicar lista"
+                                        >
+                                            <FiCopy size={18} />
+                                        </button>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                Swal.fire({
+                                                    title: '¿Borrar lista?',
+                                                    text: "Se perderán todos los items.",
+                                                    icon: 'warning',
+                                                    showCancelButton: true,
+                                                    confirmButtonColor: '#ef4444',
+                                                    background: "#1f2937",
+                                                    color: "#fff"
+                                                }).then((res) => {
+                                                    if (res.isConfirmed) {
+                                                        if (selectedList?.id === list.id) setSelectedList(null);
+                                                        deleteList(list.id);
+                                                    }
+                                                })
+                                            }}
+                                            className="p-2 text-slate-500 hover:text-red-400 hover:bg-slate-700/50 rounded-lg transition-all"
+                                            title="Borrar lista"
+                                        >
+                                            <FiTrash2 size={18} />
+                                        </button>
+                                    </div>
                                 </div>
                             ))
                         )}

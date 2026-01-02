@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
-import { collection, query, where, orderBy, onSnapshot, deleteDoc, doc, Timestamp } from "firebase/firestore";
+import { collection, query, where, orderBy, onSnapshot, deleteDoc, doc, Timestamp, addDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 
@@ -22,6 +22,7 @@ interface TransactionsContextType {
     transactions: Transaction[];
     loading: boolean;
     deleteTransaction: (id: string) => Promise<boolean>;
+    duplicateTransaction: (id: string) => Promise<boolean>;
 }
 
 const TransactionsContext = createContext<TransactionsContextType | undefined>(undefined);
@@ -86,8 +87,29 @@ export function TransactionsProvider({ children }: { children: ReactNode }) {
         }
     };
 
+    const duplicateTransaction = async (id: string) => {
+        const transactionToCopy = transactions.find(t => t.id === id);
+        if (!transactionToCopy || !auth.currentUser) return false;
+
+        try {
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            const { id: _, date, ...rest } = transactionToCopy;
+
+            await addDoc(collection(db, "transactions"), {
+                ...rest,
+                userId: auth.currentUser.uid,
+                date: Timestamp.now(), // Set to NOW
+                createdAt: serverTimestamp()
+            });
+            return true;
+        } catch (error) {
+            console.error("Error duplicating transaction:", error);
+            return false;
+        }
+    };
+
     return (
-        <TransactionsContext.Provider value={{ transactions, loading, deleteTransaction }}>
+        <TransactionsContext.Provider value={{ transactions, loading, deleteTransaction, duplicateTransaction }}>
             {children}
         </TransactionsContext.Provider>
     );

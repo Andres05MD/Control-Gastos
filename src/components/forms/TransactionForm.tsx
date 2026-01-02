@@ -111,6 +111,31 @@ export default function TransactionForm() {
         }
     }, [transactionToEdit, reset, rate]);
 
+    // Smart Category Detection
+    const description = watch("description");
+    useEffect(() => {
+        if (transactionToEdit) return; // Don't auto-change when editing existing one
+
+        const lowerDesc = description?.toLowerCase() || "";
+
+        const KEYWORD_MAPPING: Record<string, string[]> = {
+            "Comida": ["mcdonalds", "pizza", "burger", "almuerzo", "cena", "desayuno", "mercado", "comida", "hamburguesa", "sushi", "pan"],
+            "Transporte": ["uber", "taxi", "gasolina", "pasaje", "bus", "metro", "ridery", "yummy rides"],
+            "Servicios": ["luz", "agua", "internet", "cantv", "saldo", "recarga", "netflix", "spotify", "corpoelec", "inter"],
+            "Salud": ["farmacia", "medico", "doctor", "medicina", "pastillas", "consulta"],
+            "Salario": ["nomina", "sueldo", "pago", "quincena"],
+            "Entretenimiento": ["cine", "pelicula", "entrada", "juego", "steam", "playstation"],
+            "Educación": ["curso", "clase", "universidad", "mensualidad", "libros"],
+        };
+
+        for (const [cat, keywords] of Object.entries(KEYWORD_MAPPING)) {
+            if (keywords.some(k => lowerDesc.includes(k))) {
+                setValue("category", cat);
+                break;
+            }
+        }
+    }, [description, setValue, transactionToEdit]);
+
     // Calculate USD from VES
     useEffect(() => {
         if (currency === "VES" && vesAmount && exchangeRate) {
