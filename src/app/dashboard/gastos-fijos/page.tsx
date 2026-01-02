@@ -2,18 +2,20 @@
 
 import { useState, useEffect } from "react";
 import { useFixedExpenses, FixedExpense } from "@/hooks/useFixedExpenses";
-import { FiCalendar, FiPlus, FiTrash2, FiCheckCircle, FiDollarSign, FiEdit2, FiInfo, FiActivity, FiSearch } from "react-icons/fi";
+import { FiCalendar, FiPlus, FiTrash2, FiCheckCircle, FiDollarSign, FiEdit2, FiInfo, FiActivity, FiSearch, FiList, FiGrid } from "react-icons/fi";
 import PaginationControls from "@/components/ui/PaginationControls";
 import Swal from "sweetalert2";
 import { db, auth } from "@/lib/firebase";
 import { collection, addDoc, Timestamp } from "firebase/firestore";
 import { getBCVRate } from "@/lib/currency";
+import FixedExpensesCalendar from "@/components/ui/FixedExpensesCalendar";
 
 export default function FixedExpensesPage() {
     const { fixedExpenses, loadingFixedExpenses, addFixedExpense, deleteFixedExpense, updateFixedExpense } = useFixedExpenses();
     const [bcvRate, setBcvRate] = useState(0);
     const [searchTerm, setSearchTerm] = useState("");
     const [currentPage, setCurrentPage] = useState(1);
+    const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
     const itemsPerPage = 8;
 
     useEffect(() => {
@@ -314,18 +316,37 @@ export default function FixedExpensesPage() {
 
             {/* Controls */}
             <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-slate-900/40 p-4 rounded-2xl border border-slate-700/30">
-                <div className="relative w-full md:w-80">
-                    <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-500" />
-                    <input
-                        type="text"
-                        placeholder="Buscar gasto..."
-                        value={searchTerm}
-                        onChange={(e) => {
-                            setSearchTerm(e.target.value);
-                            setCurrentPage(1);
-                        }}
-                        className="w-full bg-slate-800/50 border border-slate-700/50 rounded-xl py-2 pl-10 pr-4 text-white text-sm focus:outline-none focus:border-emerald-500/50 placeholder-slate-600 transition-all"
-                    />
+                <div className="flex items-center gap-2 w-full md:w-auto">
+                    <div className="flex bg-slate-800/50 rounded-lg p-1 border border-slate-700/50">
+                        <button
+                            onClick={() => setViewMode('list')}
+                            className={`p-2 rounded-md transition-all ${viewMode === 'list' ? 'bg-slate-700 text-emerald-400 shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
+                            title="Vista Lista"
+                        >
+                            <FiList />
+                        </button>
+                        <button
+                            onClick={() => setViewMode('calendar')}
+                            className={`p-2 rounded-md transition-all ${viewMode === 'calendar' ? 'bg-slate-700 text-emerald-400 shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
+                            title="Vista Calendario"
+                        >
+                            <FiCalendar />
+                        </button>
+                    </div>
+
+                    <div className="relative w-full md:w-80">
+                        <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-500" />
+                        <input
+                            type="text"
+                            placeholder="Buscar gasto..."
+                            value={searchTerm}
+                            onChange={(e) => {
+                                setSearchTerm(e.target.value);
+                                setCurrentPage(1);
+                            }}
+                            className="w-full bg-slate-800/50 border border-slate-700/50 rounded-xl py-2 pl-10 pr-4 text-white text-sm focus:outline-none focus:border-emerald-500/50 placeholder-slate-600 transition-all"
+                        />
+                    </div>
                 </div>
 
                 <button
@@ -336,81 +357,87 @@ export default function FixedExpensesPage() {
                 </button>
             </div>
 
-            {/* List */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {paginatedExpenses.length === 0 && (
-                    <div className="col-span-full py-12 text-center border border-dashed border-slate-700 rounded-3xl bg-slate-900/30">
-                        <div className="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <FiInfo className="text-2xl text-slate-500" />
-                        </div>
-                        <p className="text-slate-400">
-                            {searchTerm ? "No se encontraron gastos." : "No hay gastos fijos registrados."}
-                        </p>
-                    </div>
-                )}
-
-                {/* Expense Cards */}
-                {paginatedExpenses.map((expense) => {
-                    const isPaid = isPaidCurrentMonth(expense.lastPaidDate);
-                    return (
-                        <div
-                            key={expense.id}
-                            className={`lg:col-span-1 bg-slate-900/50 backdrop-blur-md border rounded-3xl p-6 relative group overflow-hidden transition-all hover:-translate-y-1 ${isPaid ? 'border-emerald-500/30 shadow-lg shadow-emerald-500/5' : 'border-slate-700/50 hover:border-slate-600'
-                                }`}
-                        >
-                            {isPaid && (
-                                <div className="absolute top-0 right-0 p-4">
-                                    <div className="bg-emerald-500/20 text-emerald-400 text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1 border border-emerald-500/30">
-                                        <FiCheckCircle /> PAGADO
-                                    </div>
+            {/* Content: List or Calendar */}
+            {viewMode === 'calendar' ? (
+                <FixedExpensesCalendar expenses={filteredExpenses} onPayExpense={handlePayExpense} />
+            ) : (
+                <>
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        {paginatedExpenses.length === 0 && (
+                            <div className="col-span-full py-12 text-center border border-dashed border-slate-700 rounded-3xl bg-slate-900/30">
+                                <div className="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4">
+                                    <FiInfo className="text-2xl text-slate-500" />
                                 </div>
-                            )}
-
-                            <div className="flex justify-between items-start mb-4">
-                                <div className="p-3 bg-slate-800 rounded-2xl">
-                                    <FiActivity className="text-2xl text-slate-400" />
-                                </div>
-                                <div className="flex gap-2">
-                                    <button
-                                        onClick={() => handleDelete(expense.id)}
-                                        className="p-2 text-slate-600 hover:text-red-400 transition-colors"
-                                    >
-                                        <FiTrash2 />
-                                    </button>
-                                </div>
+                                <p className="text-slate-400">
+                                    {searchTerm ? "No se encontraron gastos." : "No hay gastos fijos registrados."}
+                                </p>
                             </div>
+                        )}
 
-                            <h3 className="text-xl font-bold text-white mb-1">{expense.title}</h3>
-                            <p className="text-slate-500 text-sm mb-4">{expense.category} • Día {expense.dueDay}</p>
-
-                            <div className="flex items-end justify-between mt-auto">
-                                <div>
-                                    <p className="text-2xl font-bold text-white">${expense.amount}</p>
-                                    <p className="text-xs text-slate-500">
-                                        ≈ Bs. {(expense.amount * bcvRate).toLocaleString("es-VE", { maximumFractionDigits: 2 })}
-                                    </p>
-                                </div>
-                                <button
-                                    onClick={() => handlePayExpense(expense)}
-                                    disabled={isPaid}
-                                    className={`px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all ${isPaid
-                                        ? "bg-slate-800 text-slate-500 cursor-not-allowed"
-                                        : "bg-emerald-500 hover:bg-emerald-400 text-white shadow-lg shadow-emerald-500/20"
+                        {/* Expense Cards */}
+                        {paginatedExpenses.map((expense) => {
+                            const isPaid = isPaidCurrentMonth(expense.lastPaidDate);
+                            return (
+                                <div
+                                    key={expense.id}
+                                    className={`lg:col-span-1 bg-slate-900/50 backdrop-blur-md border rounded-3xl p-6 relative group overflow-hidden transition-all hover:-translate-y-1 ${isPaid ? 'border-emerald-500/30 shadow-lg shadow-emerald-500/5' : 'border-slate-700/50 hover:border-slate-600'
                                         }`}
                                 >
-                                    <FiDollarSign /> {isPaid ? "Pagado" : "Pagar"}
-                                </button>
-                            </div>
-                        </div>
-                    );
-                })}
-            </div>
+                                    {isPaid && (
+                                        <div className="absolute top-0 right-0 p-4">
+                                            <div className="bg-emerald-500/20 text-emerald-400 text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1 border border-emerald-500/30">
+                                                <FiCheckCircle /> PAGADO
+                                            </div>
+                                        </div>
+                                    )}
 
-            <PaginationControls
-                currentPage={currentPage}
-                totalPages={totalPages}
-                onPageChange={setCurrentPage}
-            />
+                                    <div className="flex justify-between items-start mb-4">
+                                        <div className="p-3 bg-slate-800 rounded-2xl">
+                                            <FiActivity className="text-2xl text-slate-400" />
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={() => handleDelete(expense.id)}
+                                                className="p-2 text-slate-600 hover:text-red-400 transition-colors"
+                                            >
+                                                <FiTrash2 />
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <h3 className="text-xl font-bold text-white mb-1">{expense.title}</h3>
+                                    <p className="text-slate-500 text-sm mb-4">{expense.category} • Día {expense.dueDay}</p>
+
+                                    <div className="flex items-end justify-between mt-auto">
+                                        <div>
+                                            <p className="text-2xl font-bold text-white">${expense.amount}</p>
+                                            <p className="text-xs text-slate-500">
+                                                ≈ Bs. {(expense.amount * bcvRate).toLocaleString("es-VE", { maximumFractionDigits: 2 })}
+                                            </p>
+                                        </div>
+                                        <button
+                                            onClick={() => handlePayExpense(expense)}
+                                            disabled={isPaid}
+                                            className={`px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all ${isPaid
+                                                ? "bg-slate-800 text-slate-500 cursor-not-allowed"
+                                                : "bg-emerald-500 hover:bg-emerald-400 text-white shadow-lg shadow-emerald-500/20"
+                                                }`}
+                                        >
+                                            <FiDollarSign /> {isPaid ? "Pagado" : "Pagar"}
+                                        </button>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+
+                    <PaginationControls
+                        currentPage={currentPage}
+                        totalPages={totalPages}
+                        onPageChange={setCurrentPage}
+                    />
+                </>
+            )}
         </div>
     );
 }

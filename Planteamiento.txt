@@ -110,6 +110,7 @@ Librerias: Next.js (App Router), Tailwind CSS, React, TypeScript, SweetAlert2, F
    - [x] Integración BCV: Caché de 15 min para reducir peticiones a la API externa.
    - [x] Búsqueda y Paginación Global: Implementación de filtros de búsqueda y paginación en todas las listas (Movimientos, Deudas, Ahorros, Gastos Fijos, Listas).
    - [x] Registro Multi-Moneda en Deudas: Opción para registrar deudas y abonos en Bolívares con conversión automática.
+   - [x] Vista de Calendario en Gastos Fijos: Visualización mensual de compromisos con estado de pago y toggle de vistas.
 
 5. Secciones y Funcionalidades Detalladas:
    
@@ -142,6 +143,7 @@ Librerias: Next.js (App Router), Tailwind CSS, React, TypeScript, SweetAlert2, F
      * Control de deudas por cobrar/pagar con historial de abonos y soporte para registro en Bs.
      * Seguimiento de gastos fijos mensuales con barra de progreso.
      * Búsqueda y Paginación para manejar grandes volúmenes de datos.
+     * Vista de Calendario interactiva para gestión visual de fechas de pago.
 
    - Reportes:
      * Gráficos de Torta (Gastos por Categoría).
