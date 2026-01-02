@@ -12,7 +12,7 @@ import RecentTransactions from "@/components/ui/RecentTransactions";
 import ExchangeRateWidget from "@/components/ui/ExchangeRateWidget";
 import SavingsGoalsWidget from "@/components/ui/SavingsGoalsWidget";
 import BudgetAlertWidget from "@/components/ui/BudgetAlertWidget";
-import SalaryPlanningWidget from "@/components/ui/SalaryPlanningWidget";
+
 import CryptoCashWalletWidget from "@/components/ui/CryptoCashWalletWidget";
 import PendingDebtsWidget from "@/components/ui/PendingDebtsWidget";
 import { getBCVRate } from "@/lib/currency";
@@ -262,10 +262,7 @@ export default function DashboardPage() {
                     userId={user?.uid}
                 />
 
-                <SalaryPlanningWidget
-                    userId={user?.uid}
-                    bcvRate={bcvRate}
-                />
+
 
                 <PendingDebtsWidget />
             </div>

@@ -138,5 +138,10 @@ export const useShoppingLists = () => {
         await updateDoc(listRef, { items: updatedItems });
     };
 
-    return { lists, loading, createList, deleteList, addItem, toggleItem, updateItemProgress, deleteItem };
+    const updateListName = async (listId: string, newName: string) => {
+        const listRef = doc(db, "shopping_lists", listId);
+        await updateDoc(listRef, { name: newName });
+    };
+
+    return { lists, loading, createList, deleteList, addItem, toggleItem, updateItemProgress, deleteItem, updateListName };
 };

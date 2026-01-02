@@ -2,13 +2,13 @@
 
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useShoppingLists, ShoppingList, ShoppingItem } from "@/hooks/useShoppingLists";
-import { FiShoppingCart, FiPlus, FiTrash2, FiCheck, FiSquare, FiList, FiDollarSign, FiMinus, FiFilter, FiSearch } from "react-icons/fi";
+import { FiShoppingCart, FiPlus, FiTrash2, FiCheck, FiSquare, FiList, FiDollarSign, FiMinus, FiFilter, FiSearch, FiEdit2 } from "react-icons/fi";
 import PaginationControls from "@/components/ui/PaginationControls";
 import Swal from "sweetalert2";
 import { getBCVRate } from "@/lib/currency";
 
 export default function ShoppingListsPage() {
-    const { lists, loading, createList, deleteList, addItem, toggleItem, deleteItem, updateItemProgress } = useShoppingLists();
+    const { lists, loading, createList, deleteList, addItem, toggleItem, deleteItem, updateItemProgress, updateListName } = useShoppingLists();
     const [selectedList, setSelectedList] = useState<ShoppingList | null>(null);
     const [bcvRate, setBcvRate] = useState(0);
     const [filterText, setFilterText] = useState("");
@@ -48,6 +48,37 @@ export default function ShoppingListsPage() {
             Swal.fire({
                 icon: "success",
                 title: "Lista creada",
+                timer: 1000,
+                showConfirmButton: false,
+                background: "#1f2937",
+                color: "#fff",
+            });
+        }
+    };
+
+    const handleEditListName = async () => {
+        if (!selectedList) return;
+
+        const { value: name } = await Swal.fire({
+            title: 'Editar nombre de la lista',
+            input: 'text',
+            inputValue: selectedList.name,
+            inputPlaceholder: 'Nuevo nombre',
+            showCancelButton: true,
+            background: "#1f2937",
+            color: "#fff",
+            confirmButtonText: 'Guardar',
+            confirmButtonColor: '#10b981',
+            inputValidator: (value) => {
+                if (!value) return 'Necesitas escribir un nombre';
+            }
+        });
+
+        if (name) {
+            await updateListName(selectedList.id, name);
+            Swal.fire({
+                icon: "success",
+                title: "Nombre actualizado",
                 timer: 1000,
                 showConfirmButton: false,
                 background: "#1f2937",
@@ -303,7 +334,15 @@ export default function ShoppingListsPage() {
 
                                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 border-b border-slate-700/50 pb-6 relative z-10 gap-4">
                                         <div>
-                                            <h2 className="text-3xl font-bold text-white mb-2">{currentList.name}</h2>
+                                            <div className="flex items-center gap-3 mb-2">
+                                                <h2 className="text-3xl font-bold text-white">{currentList.name}</h2>
+                                                <button
+                                                    onClick={handleEditListName}
+                                                    className="p-2 text-slate-400 hover:text-emerald-400 hover:bg-slate-800/50 rounded-lg transition-all"
+                                                >
+                                                    <FiEdit2 size={20} />
+                                                </button>
+                                            </div>
                                             <div className="flex items-center gap-3 text-sm bg-slate-800/50 px-4 py-2 rounded-xl border border-slate-700/50 inline-flex">
                                                 <span className="text-slate-400 uppercase tracking-wider font-bold text-[10px]">Total Estimado</span>
                                                 <span className="text-emerald-400 font-bold text-lg">${total.toFixed(2)}</span>
